@@ -1,0 +1,21 @@
+*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.kotlin/
+*.apk
+*.ap_
+*.aab
+*.idsig
+/app/release/
+# Klucz podpisujący — nigdy nie wrzucać do repo
+/klucz
+*.jks
+*.keystore
+*.p12

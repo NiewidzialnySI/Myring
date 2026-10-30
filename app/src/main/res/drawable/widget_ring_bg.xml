@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Tło kafelka (kolor jasnofioletowy). -->
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="28dp" />
+            <solid android:color="#F1EFFB" />
+            <stroke android:width="1dp" android:color="#D9D2F0" />
+        </shape>
+    </item>
+    <!-- Pierścień (okrąg jak na ekranie Home). -->
+    <item
+        android:top="14dp"
+        android:bottom="14dp"
+        android:left="14dp"
+        android:right="14dp">
+        <shape android:shape="ring"
+            android:innerRadius="54dp"
+            android:thickness="9dp"
+            android:useLevel="false">
+            <solid android:color="#908DCE" />
+        </shape>
+    </item>
+    <!-- Tło centrum okręgu (jaśniejsze). -->
+    <item
+        android:top="26dp"
+        android:bottom="26dp"
+        android:left="26dp"
+        android:right="26dp">
+        <shape android:shape="oval">
+            <solid android:color="#FFFFFF" />
+        </shape>
+    </item>
+</layer-list>
