@@ -39,7 +39,8 @@ object AktualizacjaAplikacji {
     private const val K_OSTATNIE = "ostatnie_sprawdzenie_ms"
     private const val K_POMINIETY = "pominiety_version_code"
 
-    private const val MIN_ODSTEP_MS = 6L * 60L * 60L * 1000L // 6 h
+    // Krótki odstęp — wygodniej przy testach aktualizacji (wcześniej 6 h).
+    private const val MIN_ODSTEP_MS = 60L * 1000L // 1 min
 
     data class InfoWersji(
         val versionCode: Int,
