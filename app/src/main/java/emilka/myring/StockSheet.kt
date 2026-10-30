@@ -53,6 +53,7 @@ fun StockSheet(context: Context, onBack: () -> Unit = {}, onStockChanged: () -> 
     fun refresh() {
         packages = StockStore.load(context)
         onStockChanged()
+        MyringWidgetProvider.refreshAll(context)
     }
 
     Surface(

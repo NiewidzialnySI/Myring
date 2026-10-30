@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ścieżki FileProvider — cache APK do autoaktualizacji. -->
+<paths>
+    <cache-path name="cache_apk" path="apk/" />
+</paths>

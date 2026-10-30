@@ -13,31 +13,38 @@ android {
         applicationId = "emilka.myring"
         minSdk = 31
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Autoaktualizacja — patrz UPDATE.md / update.json w root repo.
+        buildConfigField(
+            "String",
+            "UPDATE_MANIFEST_URL",
+            "\"https://raw.githubusercontent.com/NiewidzialnySI/Myring/main/update.json\""
+        )
     }
 
     buildTypes {
-                release {
-                    // Podpisany kluczem debug (żeby "Build APK" z Android Studio dawał
-                    // instalowalny plik, tak jak debug), a R8 WYŁĄCZYĆ — patrz niżej.
-                    signingConfig = signingConfigs.getByName("debug")
-                    // WYŁĄCZONE R8 — release buduje się jak debug, żeby nie wycinać klas
-                    // rejestrowanych w manifeście (receiver-y, widget, usługa) i Compose,
-                    // co powodowało crash "aplikacja zamyka się zaraz po uruchomieniu".
-                    optimization {
-                        enable = false
-                    }
-                }
+        release {
+            // Podpisany kluczem debug (żeby "Build APK" z Android Studio dawał
+            // instalowalny plik, tak jak debug), a R8 WYŁĄCZONY — patrz niżej.
+            signingConfig = signingConfigs.getByName("debug")
+            // WYŁĄCZONE R8 — release buduje się jak debug, żeby nie wycinać klas
+            // rejestrowanych w manifeście (receiver-y, widget, usługa) i Compose.
+            optimization {
+                enable = false
             }
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -55,14 +62,14 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.datetime)
-        implementation(libs.accompanist.permissions)
-        // Skanner kodów EAN (opakowania krążków).
-        implementation("com.google.mlkit:barcode-scanning:17.3.0")
-        implementation("androidx.camera:camera-core:1.4.1")
-        implementation("androidx.camera:camera-camera2:1.4.1")
-        implementation("androidx.camera:camera-lifecycle:1.4.1")
-        implementation("androidx.camera:camera-view:1.4.1")
-        testImplementation(libs.junit)
+    implementation(libs.accompanist.permissions)
+    // Skanner kodów EAN (opakowania krążków).
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.camera:camera-view:1.4.1")
+    testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

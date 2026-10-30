@@ -1,0 +1,6 @@
+{
+  "versionCode": 2,
+  "versionName": "1.1",
+  "apkUrl": "https://github.com/NiewidzialnySI/Myring/releases/download/v1.1/myring-v1.1.apk",
+  "changelog": "Naprawione powiadomienia i exact alarmy (bez wiszącego FGS). Widget odświeża się o północy. Autoaktualizacja z GitHuba. Czytelniejszy status i uprawnienia w setupie."
+}

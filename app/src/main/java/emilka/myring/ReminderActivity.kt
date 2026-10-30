@@ -35,6 +35,9 @@ enum class ConfirmMode { REMOVE, INSERT }
 class ReminderActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Ekran nad lockscreenem — jak budzik.
+        setShowWhenLocked(true)
+        setTurnScreenOn(true)
         val insert = intent.getBooleanExtra("insert", false)
         val mode = if (insert) ConfirmMode.INSERT else ConfirmMode.REMOVE
         enableEdgeToEdge()
@@ -42,7 +45,10 @@ class ReminderActivity : ComponentActivity() {
             MojeKrążkiTheme {
                 ConfirmationScreen(
                     mode = mode,
-                    onConfirmed = { finish() },
+                    onConfirmed = {
+                        ReminderCenter.stopService(this)
+                        finish()
+                    },
                     onSnooze = {
                         ReminderCenter.snoozeUntilTomorrow(this)
                         ReminderCenter.stopService(this)
@@ -51,6 +57,15 @@ class ReminderActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        // Back / zabicie Activity nie może zostawić sticky FGS.
+        // Przy rotacji (isChangingConfigurations) nie gasimy alarmu.
+        if (isFinishing) {
+            ReminderCenter.stopService(this)
+        }
+        super.onDestroy()
     }
 }
 

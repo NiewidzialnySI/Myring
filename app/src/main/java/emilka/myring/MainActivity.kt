@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import emilka.myring.ui.theme.MojeKrążkiTheme
+import emilka.myring.update.DialogAktualizacjiHost
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -53,12 +54,23 @@ import java.time.LocalTime
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Notifications.createChannels(this)
         enableEdgeToEdge()
         setContent {
             MojeKrążkiTheme {
-                MyringApp()
+                Box(Modifier.fillMaxSize()) {
+                    MyringApp()
+                    DialogAktualizacjiHost()
+                }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Po powrocie z ustawień / północy — odśwież widget i alarmy.
+        MyringWidgetProvider.refreshAll(this)
+        WidgetRefreshScheduler.scheduleNextMidnight(this)
     }
 }
 
@@ -92,7 +104,9 @@ fun MyringApp() {
                             val time = savedReminder ?: LocalTime.of(18, 0)
                             ReminderCenter.createChannel(context)
                             AlarmScheduler.scheduleDaily(context, time)
-                            ReminderScheduler.schedule(context, savedStart, savedWeeks, time)
+                            ReminderScheduler.schedule(context, effectiveAnchor, savedWeeks, time)
+                            WidgetRefreshScheduler.scheduleNextMidnight(context)
+                            MyringWidgetProvider.refreshAll(context)
                         }
                         // Pokaż animację pierścienia przez chwilę, potem przejdź dalej.
                         delay(if (setupDone) 1300 else 1900)
@@ -107,11 +121,13 @@ fun MyringApp() {
                                                                                     ReminderCenter.createChannel(context)
                                                                                     AlarmScheduler.scheduleDaily(context, time)
                                                                                     ReminderScheduler.schedule(context, date, weeks, time)
+                                                                                    WidgetRefreshScheduler.scheduleNextMidnight(context)
+                                                                                    MyringWidgetProvider.refreshAll(context)
                                                                                     ringStart = date
                                                                                     cycleWeeks = weeks
                                                                                     effectiveAnchor = date
-                                                                                                                                                                    nextBreakDate = null
-                                                                                                                                                                    started = true
+                                                                                    nextBreakDate = null
+                                                                                    started = true
                                         })
             }
             if (started) {
@@ -340,6 +356,21 @@ fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null
                             Text(dateLabel, style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            // Status zapasów pod datą — czytelny skrót bez osobnej karty.
+                            val stockLeft = remember(stockTick) { StockStore.totalRemaining(context) }
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                when {
+                                    stockLeft <= 0 -> "Zapas: brak krążków"
+                                    stockLeft == 1 -> "Zapas: 1 krążek"
+                                    else -> "Zapas: $stockLeft krążki"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (stockLeft <= 1) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            PermissionStatusHint(context)
                             // W dniu akcji pokaż przycisk potwierdzenia (X / ptaszek).
                             ActionDayButton(startDate = startDate, weeks = weeks, today = today, context = context)
                         }
@@ -599,6 +630,40 @@ fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null
                                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
+
+/** Krótki hint, gdy brak exact alarms / powiadomień — prowadzi do ustawień. */
+@Composable
+private fun PermissionStatusHint(context: android.content.Context) {
+    var tick by remember { mutableStateOf(0) }
+    val notifOk = remember(tick) { Notifications.areNotificationsEnabled(context) }
+    val exactOk = remember(tick) { Notifications.canScheduleExactAlarms(context) }
+    val batteryOk = remember(tick) { Notifications.isIgnoringBatteryOptimizations(context) }
+    if (notifOk && exactOk && batteryOk) return
+
+    Spacer(Modifier.height(12.dp))
+    val msg = when {
+        !notifOk -> "Włącz powiadomienia, żeby dostać przypomnienie o wyjęciu"
+        !exactOk -> "Włącz dokładne alarmy — inaczej przypomnienie może się spóźnić"
+        else -> "Wyłącz optymalizację baterii dla pewniejszych alarmów"
+    }
+    TextButton(onClick = {
+        try {
+            val intent = when {
+                !notifOk -> Notifications.intentAppNotificationSettings(context)
+                !exactOk -> Notifications.intentExactAlarmSettings(context)
+                else -> Notifications.intentBatteryOptimization(context)
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) {
+            try {
+                context.startActivity(Notifications.intentBatterySettings(context))
+            } catch (_: Exception) { }
+        }
+        tick++
+    }) {
+        Text(msg, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}
 
 @Composable
 private fun ActionDayButton(startDate: LocalDate, weeks: Int, today: LocalDate, context: android.content.Context) {

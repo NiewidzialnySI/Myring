@@ -2,11 +2,9 @@ package emilka.myring
 
 import android.Manifest
 import android.Manifest.permission.POST_NOTIFICATIONS
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
@@ -18,7 +16,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -27,8 +24,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,6 +35,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.BatterySaver
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.PhotoCamera
@@ -50,9 +51,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -69,18 +68,19 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
     var weeks by remember { mutableStateOf(3) }
     var reminderStart by remember { mutableStateOf(LocalTime.of(18, 0)) }
 
-    // Grant status refreshed on each recomposition
     fun notifGranted() = ContextCompat.checkSelfPermission(context, POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        fun overlayGranted() = Settings.canDrawOverlays(context)
-        fun cameraGranted() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    fun overlayGranted() = Settings.canDrawOverlays(context)
+    fun cameraGranted() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    fun exactGranted() = Notifications.canScheduleExactAlarms(context)
+    fun batteryGranted() = Notifications.isIgnoringBatteryOptimizations(context)
 
-        val notifLauncher = rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { }
+    val notifLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
 
-        val cameraLauncher = rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
 
     var tick by remember { mutableStateOf(0) }
 
@@ -136,13 +136,43 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
                                                                                                 1 -> StepWeeks(weeks = weeks, onWeeksChange = { weeks = it })
                                                                                                 2 -> StepTimeRange(startTime = reminderStart, onStartChange = { reminderStart = it })
                                                 3 -> StepPermissions(
-                                                                                                                                                    notifGranted = notifGranted(),
-                                                                                                                                                    overlayGranted = overlayGranted(),
-                                                                                                                                                    cameraGranted = cameraGranted(),
-                                                                                                                                                    requestNotif = { notifLauncher.launch(POST_NOTIFICATIONS); tick++ },
-                                                                                                                                                    requestOverlay = { showOverlayConfirm = true },
-                                                                                                                                                    requestCamera = { cameraLauncher.launch(Manifest.permission.CAMERA); tick++ }
-                                                                                                                                                )
+                                                    notifGranted = notifGranted(),
+                                                    overlayGranted = overlayGranted(),
+                                                    cameraGranted = cameraGranted(),
+                                                    exactGranted = exactGranted(),
+                                                    batteryGranted = batteryGranted(),
+                                                    requestNotif = {
+                                                        try {
+                                                            notifLauncher.launch(POST_NOTIFICATIONS)
+                                                        } catch (_: Exception) {
+                                                            context.startActivity(Notifications.intentAppNotificationSettings(context))
+                                                        }
+                                                        tick++
+                                                    },
+                                                    requestOverlay = { showOverlayConfirm = true },
+                                                    requestCamera = {
+                                                        try {
+                                                            cameraLauncher.launch(Manifest.permission.CAMERA)
+                                                        } catch (_: Exception) { }
+                                                        tick++
+                                                    },
+                                                    requestExact = {
+                                                        try {
+                                                            context.startActivity(Notifications.intentExactAlarmSettings(context))
+                                                        } catch (_: Exception) { }
+                                                        tick++
+                                                    },
+                                                    requestBattery = {
+                                                        try {
+                                                            context.startActivity(Notifications.intentBatteryOptimization(context))
+                                                        } catch (_: Exception) {
+                                                            try {
+                                                                context.startActivity(Notifications.intentBatterySettings(context))
+                                                            } catch (_: Exception) { }
+                                                        }
+                                                        tick++
+                                                    }
+                                                )
                                                                                             }
                                                                                         }
                                                                                 }
@@ -204,10 +234,11 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
                                                                                                                                                     // Na ostatnim etapie, gdy wszystkie uprawnienia są nadane,
                                                                                                                                                     // strzałka zmienia się w przycisk "Zaczynamy".
                                                                                                                                                     if (step == 3) {
-                                                                                                                                                                                                                        val allGranted = notifGranted() && overlayGranted()
-                                                                                                                                                                                                                        Surface(
-                                                                                                                                                                                                                                                                                                onClick = { if (allGranted) onFinish(startDate, weeks, reminderStart) },
-                                                                                                                                                                                                                            enabled = allGranted,
+                                                                                                                                                        // Powiadomienia + exact alarms są krytyczne; overlay/bateria — zalecane.
+                                                                                                                                                        val allGranted = notifGranted() && exactGranted()
+                                                                                                                                                        Surface(
+                                                                                                                                                            onClick = { if (allGranted) onFinish(startDate, weeks, reminderStart) },
+                                                                                                                                                            enabled = allGranted,
                                                                                                                                                                                                                             modifier = Modifier
                                                                                                                                                                                                                                 .height(56.dp)
                                                                                                                                                                                                                                 .width(180.dp),
@@ -562,32 +593,64 @@ private fun TimePickerCard(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun StepPermissions(notifGranted: Boolean, overlayGranted: Boolean, cameraGranted: Boolean,
-                    requestNotif: () -> Unit, requestOverlay: () -> Unit, requestCamera: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Uprawnienia",
-                style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(28.dp))
+fun StepPermissions(
+    notifGranted: Boolean,
+    overlayGranted: Boolean,
+    cameraGranted: Boolean,
+    exactGranted: Boolean,
+    batteryGranted: Boolean,
+    requestNotif: () -> Unit,
+    requestOverlay: () -> Unit,
+    requestCamera: () -> Unit,
+    requestExact: () -> Unit,
+    requestBattery: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            "Uprawnienia",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            "Bez powiadomień i dokładnych alarmów apka nie przypomni o wyjęciu krążka.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(20.dp))
 
-            PermissionRow(Icons.Default.NotificationsActive, "Powiadomienia",
-                            notifGranted, requestNotif)
-                        Spacer(Modifier.height(12.dp))
-                        PermissionRow(Icons.Default.PhotoCamera, "Kamera",
-                                                        cameraGranted, onClick = { if (!cameraGranted) requestCamera() })
-                        Spacer(Modifier.height(12.dp))
-                        PermissionRow(Icons.Default.Layers, "Nad innymi aplikacjami",
-                                                        overlayGranted, onClick = { if (!overlayGranted) requestOverlay() })
-                        Spacer(Modifier.height(12.dp))
-                        // Działanie w tle i przy starcie — nadawane automatycznie z manifestu.
-                        PermissionRow(
-                            icon = Icons.Default.Layers,
-                            title = "Działanie w tle i przy starcie",
-                            granted = true,
-                            onClick = {}
-                        )
-                        Spacer(Modifier.height(12.dp))
-                                            }
-                                        }
+        PermissionRow(Icons.Default.NotificationsActive, "Powiadomienia", notifGranted, requestNotif)
+        Spacer(Modifier.height(12.dp))
+        PermissionRow(Icons.Default.Alarm, "Dokładne alarmy", exactGranted, requestExact)
+        Spacer(Modifier.height(12.dp))
+        PermissionRow(
+            Icons.Default.BatterySaver,
+            "Bez optymalizacji baterii",
+            batteryGranted,
+            requestBattery
+        )
+        Spacer(Modifier.height(12.dp))
+        PermissionRow(
+            Icons.Default.Layers,
+            "Nad innymi aplikacjami",
+            overlayGranted,
+            onClick = { if (!overlayGranted) requestOverlay() }
+        )
+        Spacer(Modifier.height(12.dp))
+        PermissionRow(
+            Icons.Default.PhotoCamera,
+            "Kamera (skan EAN)",
+            cameraGranted,
+            onClick = { if (!cameraGranted) requestCamera() }
+        )
+        Spacer(Modifier.height(12.dp))
+    }
+}
 
             @Composable
             fun PermissionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String,
