@@ -1,6 +1,7 @@
 package emilka.myring
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -39,6 +40,17 @@ class ReminderActivity : ComponentActivity() {
         // Ekran nad lockscreenem — jak budzik.
         setShowWhenLocked(true)
         setTurnScreenOn(true)
+        renderFromIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // singleTask: ponowne otwarcie (np. demo podczas alarmu) musi przełączyć UI.
+        renderFromIntent(intent)
+    }
+
+    private fun renderFromIntent(intent: Intent) {
         val insert = intent.getBooleanExtra("insert", false)
         val demo = intent.getBooleanExtra(EXTRA_DEMO, false)
         val mode = if (insert) ConfirmMode.INSERT else ConfirmMode.REMOVE
@@ -53,12 +65,15 @@ class ReminderActivity : ComponentActivity() {
                         mode = mode,
                         demo = demo,
                         onConfirmed = {
-                            ReminderCenter.stopService(this)
+                            // Demo nie gasi prawdziwego FGS alarmu.
+                            if (!demo) ReminderCenter.stopService(this)
                             finish()
                         },
                         onSnooze = {
-                            if (!demo) ReminderCenter.snoozeUntilTomorrow(this)
-                            ReminderCenter.stopService(this)
+                            if (!demo) {
+                                ReminderCenter.snoozeUntilTomorrow(this)
+                                ReminderCenter.stopService(this)
+                            }
                             finish()
                         }
                     )
@@ -73,8 +88,10 @@ class ReminderActivity : ComponentActivity() {
 
     override fun onDestroy() {
         // Back / zabicie Activity nie może zostawić sticky FGS.
+        // Demo nie stopuje usługi — mogłoby zgasić prawdziwy alarm.
         // Przy rotacji (isChangingConfigurations) nie gasimy alarmu.
-        if (isFinishing) {
+        val demo = intent.getBooleanExtra(EXTRA_DEMO, false)
+        if (isFinishing && !demo) {
             ReminderCenter.stopService(this)
         }
         super.onDestroy()
@@ -108,7 +125,7 @@ private fun ConfirmationScreen(
     // Przełącznik wibracji: startowa, potem zatrzymujemy po potwierdzeniu.
     fun stopAlarm() {
         vibrator?.cancel()
-        ReminderCenter.stopService(context)
+        if (!demo) ReminderCenter.stopService(context)
         onConfirmed()
     }
 
@@ -125,8 +142,8 @@ private fun ConfirmationScreen(
             if (!demo) {
                 if (isRemove) ReminderCenter.markRemoved(context)
                 else ReminderCenter.markInserted(context)
+                ReminderCenter.stopService(context)
             }
-            ReminderCenter.stopService(context)
         }
     }
 

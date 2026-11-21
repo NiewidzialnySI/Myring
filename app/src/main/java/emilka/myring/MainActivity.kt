@@ -207,18 +207,12 @@ fun computeCycle(startDate: LocalDate, weeks: Int, day: LocalDate): CycleInfo {
     val removeDate = startDate.plusDays(weeks * 7L)
     val breakEnd = removeDate.plusDays(7L)
     val nextStartDate = breakEnd
-    val phase = when {
-        day < removeDate -> CyclePhase.RING_ON
-        day < breakEnd -> CyclePhase.BREAK
-        else -> CyclePhase.NEW_CYCLE_READY
-    }
-    val daysLeft = when (phase) {
-        CyclePhase.RING_ON -> java.time.temporal.ChronoUnit.DAYS.between(day, removeDate)
-        CyclePhase.BREAK -> java.time.temporal.ChronoUnit.DAYS.between(day, breakEnd)
-        CyclePhase.NEW_CYCLE_READY -> 0
-    }
+    // Bez potwierdzonego wyjęcia (next_insert) zawsze RING_ON —
+    // nawet po breakEnd, żeby UI nie sugerował „załóż nowy” przed wyjęciem.
+    val phase = CyclePhase.RING_ON
+    val daysLeft = java.time.temporal.ChronoUnit.DAYS.between(day, removeDate)
     return CycleInfo(phase, removeDate, breakEnd, nextStartDate, daysLeft)
-    }
+}
 
     /** Jeden cykl historii: kiedy włożono, na ile tygodni, kiedy wyjęto, kiedy koniec przerwy. */
     data class CycleEvent(
@@ -253,10 +247,12 @@ fun dayMark(date: LocalDate, startDate: LocalDate, weeks: Int): DayMark {
     val posInCycle = delta % step
     val weeksDays = weeks * 7L
     return when {
+        // Dzień 0 cyklu = włożenie; dzień weeks*7 = wyjęcie (= start przerwy).
+        posInCycle == 0L -> DayMark.INSERT
         posInCycle < weeksDays -> DayMark.RING
-        posInCycle == weeksDays -> DayMark.INSERT  // dzień wyjęcia = granica → oznacz jako dzień akcji
+        posInCycle == weeksDays -> DayMark.BREAK
         posInCycle < weeksDays + 7L -> DayMark.BREAK
-        else -> DayMark.RING // po przerwie nowy krążek
+        else -> DayMark.RING
     }
 }
 
@@ -301,11 +297,9 @@ fun HomeScreen(
         if (nextBreakEnd != null) {
             val removeDate = lastRemoved ?: startDate.plusDays(weeks * 7L)
             val breakEnd = nextBreakEnd
-            val phase = if (effectiveDay < breakEnd) CyclePhase.BREAK else CyclePhase.NEW_CYCLE_READY
-            val daysLeft = if (phase == CyclePhase.BREAK)
-                java.time.temporal.ChronoUnit.DAYS.between(effectiveDay, breakEnd)
-            else 0
-            CycleInfo(phase, removeDate, breakEnd, breakEnd, daysLeft)
+            // Do markInserted zostajemy w BREAK (ujemne daysLeft = zaległe włożenie).
+            val daysLeft = java.time.temporal.ChronoUnit.DAYS.between(effectiveDay, breakEnd)
+            CycleInfo(CyclePhase.BREAK, removeDate, breakEnd, breakEnd, daysLeft)
         } else {
             computeCycle(startDate, weeks, effectiveDay)
         }
@@ -337,21 +331,28 @@ fun HomeScreen(
         CyclePhase.NEW_CYCLE_READY -> MaterialTheme.colorScheme.primary
     }
 
+    val overdueRemove = cycle.phase == CyclePhase.RING_ON && cycle.daysLeft < 0
+    val overdueBreak = cycle.phase == CyclePhase.BREAK && cycle.daysLeft < 0
+    val absDays = kotlin.math.abs(cycle.daysLeft)
+
     /*** Napis centralny: liczba dni + etykieta fazy. ***/
     val centerNumber: String = when (cycle.phase) {
-        CyclePhase.RING_ON -> cycle.daysLeft.toString()
-        CyclePhase.BREAK -> cycle.daysLeft.toString()
+        CyclePhase.RING_ON -> absDays.toString()
+        CyclePhase.BREAK -> absDays.toString()
         CyclePhase.NEW_CYCLE_READY -> "✓"
     }
-    val centerUnit = when (cycle.phase) {
-        CyclePhase.RING_ON -> if (cycle.daysLeft <= 1L) "dzień" else "dni"
-        CyclePhase.BREAK -> if (cycle.daysLeft <= 1L) "dzień" else "dni"
-        CyclePhase.NEW_CYCLE_READY -> ""
+    val centerUnit = when {
+        overdueRemove || overdueBreak -> if (absDays <= 1L) "dzień po terminie" else "dni po terminie"
+        cycle.phase == CyclePhase.RING_ON -> if (cycle.daysLeft <= 1L) "dzień" else "dni"
+        cycle.phase == CyclePhase.BREAK -> if (cycle.daysLeft <= 1L) "dzień" else "dni"
+        else -> ""
     }
-    val headline = when (cycle.phase) {
-        CyclePhase.RING_ON -> "do wyjęcia krążka"
-        CyclePhase.BREAK -> "przerwa od krążka"
-        CyclePhase.NEW_CYCLE_READY -> "czas założyć nowy krążek"
+    val headline = when {
+        overdueRemove -> "wyjęcie zaległe — potwierdź"
+        overdueBreak -> "włożenie zaległe — potwierdź"
+        cycle.phase == CyclePhase.RING_ON -> "do wyjęcia krążka"
+        cycle.phase == CyclePhase.BREAK -> "przerwa od krążka"
+        else -> "czas założyć nowy krążek"
     }
     val dateLabel = when (cycle.phase) {
         CyclePhase.RING_ON -> "Wyjmij krążek dnia:"

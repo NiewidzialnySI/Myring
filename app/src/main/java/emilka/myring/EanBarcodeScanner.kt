@@ -254,10 +254,11 @@ private class EanMlKitAnalyzer(
     private val busy = AtomicBoolean(false)
     private var lastCandidate: String? = null
     private var stableHits = 0
+    private val delivered = AtomicBoolean(false)
 
     @ExperimentalGetImage
     override fun analyze(imageProxy: ImageProxy) {
-        if (!busy.compareAndSet(false, true)) {
+        if (delivered.get() || !busy.compareAndSet(false, true)) {
             imageProxy.close()
             return
         }
@@ -270,6 +271,7 @@ private class EanMlKitAnalyzer(
         val input = InputImage.fromMediaImage(media, imageProxy.imageInfo.rotationDegrees)
         scanner.process(input)
             .addOnSuccessListener { barcodes ->
+                if (delivered.get()) return@addOnSuccessListener
                 val code = barcodes.firstOrNull {
                     val f = it.format
                     (f == Barcode.FORMAT_EAN_13 || f == Barcode.FORMAT_EAN_8) && !it.rawValue.isNullOrBlank()
@@ -281,7 +283,7 @@ private class EanMlKitAnalyzer(
                         lastCandidate = code
                         stableHits = 1
                     }
-                    if (stableHits >= 2) {
+                    if (stableHits >= 2 && delivered.compareAndSet(false, true)) {
                         onScanned(code)
                         lastCandidate = null
                         stableHits = 0
@@ -297,8 +299,5 @@ private class EanMlKitAnalyzer(
             }
     }
 
-    private fun isValidEan(value: String): Boolean {
-        if (value.length !in 8..13 || !value.all { it.isDigit() }) return false
-        return true
-    }
+    private fun isValidEan(value: String): Boolean = EanValidator.isValid(value)
 }

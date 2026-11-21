@@ -250,7 +250,7 @@ object AktualizacjaAplikacji {
         val code = o.getInt("versionCode")
         val name = o.optString("versionName", code.toString())
         val apk = o.getString("apkUrl").trim()
-        require(apk.startsWith("http")) { "apkUrl musi być https" }
+        require(apk.startsWith("https://")) { "apkUrl musi być https" }
         val log = o.optString("changelog", "")
         return InfoWersji(code, name, apk, log)
     }
@@ -299,13 +299,29 @@ object AktualizacjaAplikacji {
         }
     }
 
+    /** Otwarcie połączenia z ręcznym follow redirect tylko po https (blokada https→http). */
     private fun otworz(url: String): HttpURLConnection {
-        return (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 20_000
-            readTimeout = 120_000
-            instanceFollowRedirects = true
-            setRequestProperty("Accept", "application/json, application/octet-stream, */*")
-            setRequestProperty("User-Agent", "Myring-AutoUpdate/${BuildConfig.VERSION_NAME}")
+        var current = url
+        repeat(5) {
+            require(current.startsWith("https://")) { "URL musi być https: $current" }
+            val conn = (URL(current).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 20_000
+                readTimeout = 120_000
+                instanceFollowRedirects = false
+                setRequestProperty("Accept", "application/json, application/octet-stream, */*")
+                setRequestProperty("User-Agent", "Myring-AutoUpdate/${BuildConfig.VERSION_NAME}")
+            }
+            val code = conn.responseCode
+            if (code in 300..399) {
+                val location = conn.getHeaderField("Location")
+                    ?: error("Redirect HTTP $code bez Location")
+                conn.disconnect()
+                current = if (location.startsWith("http")) location
+                else URL(URL(current), location).toString()
+            } else {
+                return conn
+            }
         }
+        error("Za dużo przekierowań przy $url")
     }
 }

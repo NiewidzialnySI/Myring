@@ -11,6 +11,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -76,6 +77,22 @@ object Notifications {
             am.canScheduleExactAlarms()
         } else true
     }
+
+    /** Full-screen intent (Android 14+ wymaga osobnego zezwolenia). */
+    fun canUseFullScreenIntent(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 34) return true
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return true
+        return nm.canUseFullScreenIntent()
+    }
+
+    fun intentFullScreenIntentSettings(context: Context): Intent =
+        if (Build.VERSION.SDK_INT >= 34) {
+            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                data = android.net.Uri.parse("package:${context.packageName}")
+            }
+        } else {
+            intentAppNotificationSettings(context)
+        }
 
     fun intentExactAlarmSettings(context: Context): Intent =
         Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
@@ -143,11 +160,18 @@ object Notifications {
  */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        Notifications.createChannels(context)
-        MyringWidgetProvider.refreshAll(context)
-        WidgetRefreshScheduler.scheduleNextMidnight(context)
-        // Upewnij się, że przypomnienia cyklu nie zniknęły (OEM / Doze).
-        ReminderScheduler.rescheduleFromSettings(context)
+        val pending = goAsync()
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            try {
+                Notifications.createChannels(context)
+                // Upewnij się, że przypomnienia cyklu nie zniknęły (OEM / Doze).
+                ReminderScheduler.rescheduleFromSettings(context)
+                MyringWidgetProvider.refreshAllAwait(context)
+                WidgetRefreshScheduler.scheduleNextMidnight(context)
+            } finally {
+                pending.finish()
+            }
+        }
     }
 }
 
