@@ -64,20 +64,14 @@ class ReminderService : Service() {
                 else 0
             )
         } catch (_: Exception) {
+            // FGS zablokowane — i tak otwórz Activity + fallback notify.
+            openReminderActivity(insert)
             ReminderCenter.showFallbackNotification(this, insert)
             stopSelf()
             return START_NOT_STICKY
         }
 
-        try {
-            startActivity(
-                Intent(this, ReminderActivity::class.java)
-                    .putExtra("insert", insert)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            )
-        } catch (_: Exception) {
-            // Full-screen intent z powiadomienia powinien wystarczyć.
-        }
+        openReminderActivity(insert)
 
         // Bezpiecznik: jeśli Activity nie zamknie usługi, nie wisimy wiecznie.
         handler.removeCallbacks(autoStop)
@@ -101,5 +95,17 @@ class ReminderService : Service() {
         } catch (_: Exception) { }
         Notifications.cancelAlarmNotifications(this)
         stopSelf()
+    }
+
+    private fun openReminderActivity(insert: Boolean) {
+        try {
+            startActivity(
+                Intent(this, ReminderActivity::class.java)
+                    .putExtra("insert", insert)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            )
+        } catch (_: Exception) {
+            // Full-screen intent / fallback notify zostają jako zapas.
+        }
     }
 }

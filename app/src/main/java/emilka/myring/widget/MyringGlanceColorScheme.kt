@@ -66,4 +66,13 @@ object MyringGlanceColorScheme {
     )
 
     val colors = ColorProviders(light = light, dark = dark)
+
+    /** Wymusza jasny/ciemny wg preferencji aplikacji (nie tylko system). */
+    fun colorsFor(preference: emilka.myring.ui.theme.ThemePreference): androidx.glance.color.ColorProviders {
+        return when (preference) {
+            emilka.myring.ui.theme.ThemePreference.LIGHT -> ColorProviders(light)
+            emilka.myring.ui.theme.ThemePreference.DARK -> ColorProviders(dark)
+            emilka.myring.ui.theme.ThemePreference.SYSTEM -> colors
+        }
+    }
 }

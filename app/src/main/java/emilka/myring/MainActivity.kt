@@ -2,6 +2,7 @@ package emilka.myring
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
@@ -92,7 +93,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Po powrocie z ustawień / północy — odśwież widget i alarmy.
+        // Po powrocie z ustawień / uprawnień — odśwież alarmy, widget i północ.
+        ReminderScheduler.rescheduleFromSettings(this)
+        AlarmScheduler.rescheduleFromPrefs(this)
         MyringWidgetProvider.refreshAll(this)
         WidgetRefreshScheduler.scheduleNextMidnight(this)
     }
@@ -370,6 +373,15 @@ fun HomeScreen(
                 ) {
                 val ringPage = 1
             val pagerState = rememberPagerState(initialPage = ringPage, pageCount = { 4 })
+            val activity = context as? ComponentActivity
+            // Wstecz: najpierw wróć do okręgu; z okręgu — w tło (nie zamykaj apki).
+            BackHandler {
+                if (pagerState.currentPage != ringPage) {
+                    scope.launch { pagerState.animateScrollToPage(ringPage) }
+                } else {
+                    activity?.moveTaskToBack(true)
+                }
+            }
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
@@ -830,12 +842,13 @@ private fun ActionDayButton(
     val removeDate = startDate.plusDays(weeks * 7L)
     val breakEnd = nextBreakEnd ?: removeDate.plusDays(7L)
 
-    val isRemoveDay = nextBreakEnd == null && today == removeDate
-    val isInsertDay = today == breakEnd
-    val alreadyDone = if (isRemoveDay) ReminderCenter.isRemovedToday(context)
-    else if (isInsertDay) ReminderCenter.isInsertedToday(context) else false
+    // Zaległość też pokazuje CTA — nie tylko dokładny dzień.
+    val isRemoveDay = nextBreakEnd == null && !today.isBefore(removeDate) &&
+        !ReminderCenter.isRemovedToday(context)
+    val isInsertDay = nextBreakEnd != null && !today.isBefore(breakEnd) &&
+        !ReminderCenter.isInsertedToday(context)
 
-    if ((isRemoveDay || isInsertDay) && !alreadyDone) {
+    if (isRemoveDay || isInsertDay) {
         val insert = isInsertDay
         Spacer(Modifier.height(16.dp))
         Button(
@@ -847,5 +860,5 @@ private fun ActionDayButton(
                 fontWeight = FontWeight.Bold
             )
         }
-            }
-        }
+    }
+}

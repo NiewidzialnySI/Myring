@@ -69,7 +69,9 @@ object ReminderCenter {
     fun markInserted(context: Context, forceWithoutStock: Boolean = false): Boolean {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString("ring_inserted", LocalDate.now().toString()).apply()
+        // Prepaid = krążek już odjęty przy dodawaniu opakowania („Użyj 1…”) — nie debituj drugi raz.
         val debited = when {
+            SettingsStore.isStockPrepaidForCurrentCycle(context) -> false
             StockStore.totalRemaining(context) > 0 -> StockStore.consumeForInsertConfirm(context)
             forceWithoutStock -> false
             else -> false
@@ -265,21 +267,34 @@ object ReminderScheduler {
         }
     }
 
-    /** Planuje alarm w dniu zdarzenia lub (gdy zaległy) dziś/jutro o [reminderTime]. */
+    /**
+     * Planuje alarm w dniu zdarzenia.
+     * Gdy godzina już minęła (dziś lub zaległość), ustawia bliski catch-up (~2 min),
+     * żeby nie zgubić przypomnienia do potwierdzenia.
+     */
     private fun resolveAlarmDateTime(
         eventDate: LocalDate,
         today: LocalDate,
         reminderTime: LocalTime,
         overdue: Boolean
     ): LocalDateTime? {
+        val now = LocalDateTime.now()
         if (!overdue) {
             if (eventDate.isBefore(today)) return null
-            return eventDate.atTime(reminderTime)
+            val at = eventDate.atTime(reminderTime)
+            // Ten sam dzień, ale po godzinie przypomnienia — dograj zaraz.
+            if (!at.isAfter(now) && eventDate == today) {
+                return now.plusMinutes(2)
+            }
+            return at
         }
-        if (!eventDate.isBefore(today)) return eventDate.atTime(reminderTime)
-        val now = LocalDateTime.now()
-        val todayAt = today.atTime(reminderTime)
-        return if (todayAt.isAfter(now)) todayAt else today.plusDays(1).atTime(reminderTime)
+        // Zaległość sprzed dziś: najpierw dziś o godzinie, potem catch-up / jutro.
+        if (eventDate.isBefore(today)) {
+            val todayAt = today.atTime(reminderTime)
+            return if (todayAt.isAfter(now)) todayAt else now.plusMinutes(2)
+        }
+        val at = eventDate.atTime(reminderTime)
+        return if (at.isAfter(now)) at else now.plusMinutes(2)
     }
 
     private fun cancelAll(context: Context, alarmManager: AlarmManager) {

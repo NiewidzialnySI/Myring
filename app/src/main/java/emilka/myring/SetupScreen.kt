@@ -69,7 +69,8 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
     val weeks = SettingsStore.CYCLE_WEEKS
     var reminderStart by remember { mutableStateOf(LocalTime.of(18, 0)) }
 
-    fun notifGranted() = ContextCompat.checkSelfPermission(context, POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    // API 31–32 nie ma POST_NOTIFICATIONS — używaj areNotificationsEnabled().
+    fun notifGranted() = Notifications.areNotificationsEnabled(context)
     fun overlayGranted() = Settings.canDrawOverlays(context)
     fun cameraGranted() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     fun exactGranted() = Notifications.canScheduleExactAlarms(context)
@@ -145,7 +146,11 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
                                                     batteryGranted = batteryGranted(),
                                                     requestNotif = {
                                                         try {
-                                                            notifLauncher.launch(POST_NOTIFICATIONS)
+                                                            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                                                                notifLauncher.launch(POST_NOTIFICATIONS)
+                                                            } else {
+                                                                context.startActivity(Notifications.intentAppNotificationSettings(context))
+                                                            }
                                                         } catch (_: Exception) {
                                                             context.startActivity(Notifications.intentAppNotificationSettings(context))
                                                         }

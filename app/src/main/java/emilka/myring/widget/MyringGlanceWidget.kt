@@ -60,9 +60,10 @@ class MyringGlanceWidget : GlanceAppWidget() {
         }
         val stockLeft = StockStore.load(context).sumOf { it.remaining }
         val configured = start != null
+        val themeColors = MyringGlanceColorScheme.colorsFor(SettingsStore.loadThemePreference(context))
 
         provideContent {
-            GlanceTheme(colors = MyringGlanceColorScheme.colors) {
+            GlanceTheme(colors = themeColors) {
                 WidgetRoot(
                     configured = configured,
                     state = state,
