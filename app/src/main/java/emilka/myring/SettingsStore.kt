@@ -141,6 +141,10 @@ object SettingsStore {
         return prepaid == anchor.format(ISO)
     }
 
+    /**
+     * Czyści tylko prefs ustawień. **Nie** anuluje alarmów —
+     * do pełnego resetu używaj [AppReset.resetToSetup].
+     */
     fun clearSetup(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()

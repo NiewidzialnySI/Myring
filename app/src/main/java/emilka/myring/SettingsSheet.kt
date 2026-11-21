@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import emilka.myring.ui.theme.ThemePreference
 import java.time.LocalDate
 import java.time.LocalTime
@@ -36,7 +37,13 @@ fun SettingsSheet(
         mutableStateOf(SettingsStore.loadReminderTime(context) ?: LocalTime.of(18, 0))
     }
     var themePref by remember { mutableStateOf(SettingsStore.loadThemePreference(context)) }
+    var permissionTick by remember { mutableIntStateOf(0) }
     val dateFmt = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
+
+    LifecycleResumeEffect(Unit) {
+        permissionTick++
+        onPauseOrDispose { }
+    }
 
     fun applyReminderTime(time: LocalTime) {
         reminderTime = time
@@ -139,7 +146,9 @@ fun SettingsSheet(
 
         Text("Uprawnienia alarmu", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(6.dp))
-        if (!Notifications.canUseFullScreenIntent(context)) {
+        val fsiOk = remember(permissionTick) { Notifications.canUseFullScreenIntent(context) }
+        val exactOk = remember(permissionTick) { Notifications.canScheduleExactAlarms(context) }
+        if (!fsiOk) {
             Text(
                 "Android 14+: włącz „Alarmy pełnoekranowe”, żeby przypomnienie otworzyło się przy zablokowanym ekranie.",
                 style = MaterialTheme.typography.bodySmall,
@@ -151,12 +160,13 @@ fun SettingsSheet(
                     try {
                         context.startActivity(Notifications.intentFullScreenIntentSettings(context))
                     } catch (_: Exception) { }
+                    permissionTick++
                 },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Otwórz ustawienia pełnego ekranu") }
             Spacer(Modifier.height(16.dp))
         }
-        if (!Notifications.canScheduleExactAlarms(context)) {
+        if (!exactOk) {
             Text(
                 "Brak dokładnych alarmów — przypomnienia mogą się spóźnić.",
                 style = MaterialTheme.typography.bodySmall,
@@ -168,6 +178,7 @@ fun SettingsSheet(
                     try {
                         context.startActivity(Notifications.intentExactAlarmSettings(context))
                     } catch (_: Exception) { }
+                    permissionTick++
                 },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Otwórz ustawienia dokładnych alarmów") }

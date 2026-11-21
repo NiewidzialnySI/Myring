@@ -54,6 +54,14 @@ Audyt równoległy **osobnymi agentami** na każdy obszar aplikacji (nie tylko p
 
 ---
 
+## Follow-up po audycie Setup/ustawienia
+
+Z raportu [Audyt Setup i ustawień](bc-0eef1f69-f423-51dd-a8dc-4e800961ea34):
+- `AppReset` czyści też `myring_prefs`, gasi FGS/notyfikacje
+- Settings: `LifecycleResumeEffect` odświeża hinty FSI/exact
+- Demo `ReminderActivity` nie stopuje prawdziwego alarmu; `onNewIntent` dla `singleTask`
+- Update: HTTPS także dla manifeście + redirect tylko po https
+
 ## Pozostałe (P2 / świadomie otwarte)
 
 | Priorytet | Temat | Uwaga |
@@ -61,8 +69,9 @@ Audyt równoległy **osobnymi agentami** na każdy obszar aplikacji (nie tylko p
 | P1 | Re-nag alarmu co 15/60 min do potwierdzenia | Opcjonalne; catch-up + CTA na Home pokrywa minimum |
 | P1 | Kalendarz vs `current_insert` / `next_insert` | Timeline nadal od kotwicy matematycznej; po wczesnym/późnym potwierdzeniu kolory mogą się rozjechać |
 | P2 | OEM `QUICKBOOT_POWERON` | Zależne od producenta |
-| P2 | Publiczny keystore w repo | Ryzyko podpisów — osobna decyzja release |
+| P1 | Publiczny keystore w repo | Ryzyko podpisów — osobna decyzja release (nie ruszane w tym PR) |
 | P2 | `useRing` legacy API | Nie używane w ścieżce UI; zostawić lub usunąć |
+| P2 | Custom godzina tylko chipy 8/12/18/20 w Settings | Setup pozwala inną — Settings nie edytuje |
 
 ---
 
