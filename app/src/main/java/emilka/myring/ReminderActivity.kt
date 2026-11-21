@@ -42,19 +42,24 @@ class ReminderActivity : ComponentActivity() {
         val mode = if (insert) ConfirmMode.INSERT else ConfirmMode.REMOVE
         enableEdgeToEdge()
         setContent {
-            MojeKrążkiTheme {
-                ConfirmationScreen(
-                    mode = mode,
-                    onConfirmed = {
-                        ReminderCenter.stopService(this)
-                        finish()
-                    },
-                    onSnooze = {
-                        ReminderCenter.snoozeUntilTomorrow(this)
-                        ReminderCenter.stopService(this)
-                        finish()
-                    }
-                )
+            MojeKrążkiTheme(themePreference = SettingsStore.loadThemePreference(this)) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    ConfirmationScreen(
+                        mode = mode,
+                        onConfirmed = {
+                            ReminderCenter.stopService(this)
+                            finish()
+                        },
+                        onSnooze = {
+                            ReminderCenter.snoozeUntilTomorrow(this)
+                            ReminderCenter.stopService(this)
+                            finish()
+                        }
+                    )
+                }
             }
         }
     }

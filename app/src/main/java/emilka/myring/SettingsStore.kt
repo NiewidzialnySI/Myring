@@ -13,18 +13,22 @@ object SettingsStore {
     private const val KEY_WEEKS = "weeks"
     private const val KEY_REMINDER = "reminder_time"
     private const val KEY_SETUP_DONE = "setup_done"
+    private const val KEY_THEME = "theme_preference"
     private val ISO = DateTimeFormatter.ISO_LOCAL_DATE
+
+    /** Stała długość cyklu — bez wyboru w UI. */
+    const val CYCLE_WEEKS = 3
 
     fun isSetupDone(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_SETUP_DONE, false)
 
-    fun saveSetup(context: Context, startDate: LocalDate, weeks: Int, reminderTime: LocalTime) {
+    fun saveSetup(context: Context, startDate: LocalDate, weeks: Int = CYCLE_WEEKS, reminderTime: LocalTime) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(KEY_SETUP_DONE, true)
             .putString(KEY_START_DATE, startDate.format(ISO))
-            .putInt(KEY_WEEKS, weeks)
+            .putInt(KEY_WEEKS, CYCLE_WEEKS)
             .putString(KEY_REMINDER, reminderTime.toString())
             .apply()
     }
@@ -35,14 +39,28 @@ object SettingsStore {
         return runCatching { LocalDate.parse(raw, ISO) }.getOrNull()
     }
 
-    fun loadWeeks(context: Context): Int =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getInt(KEY_WEEKS, 3)
+    fun loadWeeks(context: Context): Int = CYCLE_WEEKS
 
     fun loadReminderTime(context: Context): LocalTime? {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_REMINDER, null) ?: return null
         return runCatching { LocalTime.parse(raw) }.getOrNull()
+    }
+
+    fun loadThemePreference(context: Context): emilka.myring.ui.theme.ThemePreference {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_THEME, emilka.myring.ui.theme.ThemePreference.SYSTEM.name)
+            ?: return emilka.myring.ui.theme.ThemePreference.SYSTEM
+        return runCatching {
+            emilka.myring.ui.theme.ThemePreference.valueOf(raw)
+        }.getOrDefault(emilka.myring.ui.theme.ThemePreference.SYSTEM)
+    }
+
+    fun saveThemePreference(context: Context, preference: emilka.myring.ui.theme.ThemePreference) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_THEME, preference.name)
+            .apply()
     }
 
     // ---- Realnie potwierdzone daty cyklu (przesuwają następne etapy) ----
