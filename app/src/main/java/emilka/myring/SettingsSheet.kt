@@ -40,11 +40,10 @@ fun SettingsSheet(
 
     fun applyReminderTime(time: LocalTime) {
         reminderTime = time
-        val anchor = startDate
-        SettingsStore.saveSetup(context, anchor, reminderTime = time)
+        SettingsStore.saveReminderTime(context, time)
         ReminderCenter.createChannel(context)
+        // Jedno źródło prawdy → reschedule (bez nadpisywania start_date).
         AlarmScheduler.scheduleDaily(context, time)
-        ReminderScheduler.schedule(context, anchor, SettingsStore.CYCLE_WEEKS, time)
         WidgetRefreshScheduler.scheduleNextMidnight(context)
         MyringWidgetProvider.refreshAll(context)
         onChanged()
@@ -137,6 +136,43 @@ fun SettingsSheet(
         Spacer(Modifier.height(28.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
         Spacer(Modifier.height(24.dp))
+
+        Text("Uprawnienia alarmu", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(6.dp))
+        if (!Notifications.canUseFullScreenIntent(context)) {
+            Text(
+                "Android 14+: włącz „Alarmy pełnoekranowe”, żeby przypomnienie otworzyło się przy zablokowanym ekranie.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    try {
+                        context.startActivity(Notifications.intentFullScreenIntentSettings(context))
+                    } catch (_: Exception) { }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Otwórz ustawienia pełnego ekranu") }
+            Spacer(Modifier.height(16.dp))
+        }
+        if (!Notifications.canScheduleExactAlarms(context)) {
+            Text(
+                "Brak dokładnych alarmów — przypomnienia mogą się spóźnić.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    try {
+                        context.startActivity(Notifications.intentExactAlarmSettings(context))
+                    } catch (_: Exception) { }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Otwórz ustawienia dokładnych alarmów") }
+            Spacer(Modifier.height(16.dp))
+        }
 
         Text("Ekrany potwierdzenia", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(6.dp))

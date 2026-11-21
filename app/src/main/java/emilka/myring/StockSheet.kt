@@ -182,15 +182,20 @@ fun AddPackageDialog(
     var scannedEan by remember { mutableStateOf<String?>(null) }
     var useForCurrent by remember { mutableStateOf(isFirst) }
     var error by remember { mutableStateOf<String?>(null) }
+    var cameraGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+        )
+    }
 
-    // Kamera wymaga uprawnienia.
+    // Kamera wymaga uprawnienia — skaner montujemy dopiero po grantcie (unikamy remountu).
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        cameraGranted = granted
         if (!granted) error = "Brak dostępu do kamery"
     }
     LaunchedEffect(Unit) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
-        }
+        if (!cameraGranted) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
     fun finishAdd() {
@@ -248,7 +253,7 @@ fun AddPackageDialog(
                     )
                 }
 
-                if (scanMode) {
+                if (scanMode && cameraGranted) {
                     EanBarcodeScannerBox(
                         modifier = Modifier.fillMaxWidth(),
                         previewHeight = 200.dp,
@@ -276,7 +281,17 @@ fun AddPackageDialog(
                             }
                         }
                     }
-                } else {
+                } else if (scanMode) {
+                    Text(
+                        "Potrzebny dostęp do kamery, żeby skanować kod EAN.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
+                        Text("Udziel dostępu")
+                    }
+                }
+                if (!scanMode) {
                     OutlinedTextField(
                         value = manualEan,
                         onValueChange = {

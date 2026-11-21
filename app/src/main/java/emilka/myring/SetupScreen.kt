@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.BatterySaver
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -57,6 +58,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -74,6 +76,7 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
     fun overlayGranted() = Settings.canDrawOverlays(context)
     fun cameraGranted() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     fun exactGranted() = Notifications.canScheduleExactAlarms(context)
+    fun fsiGranted() = Notifications.canUseFullScreenIntent(context)
     fun batteryGranted() = Notifications.isIgnoringBatteryOptimizations(context)
 
     val notifLauncher = rememberLauncherForActivityResult(
@@ -138,12 +141,16 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
                                                                                                     onPickerOpenChange = { pickerOpen = it }
                                                                                                 )
                                                 1 -> StepTimeRange(startTime = reminderStart, onStartChange = { reminderStart = it })
-                                                2 -> StepPermissions(
-                                                    notifGranted = notifGranted(),
-                                                    overlayGranted = overlayGranted(),
-                                                    cameraGranted = cameraGranted(),
-                                                    exactGranted = exactGranted(),
-                                                    batteryGranted = batteryGranted(),
+                                                2 -> {
+                                                    // Odczyt tick wymusza odświeżenie kafli po powrocie z ustawień.
+                                                    val refresh = tick
+                                                    StepPermissions(
+                                                    notifGranted = remember(refresh) { notifGranted() },
+                                                    overlayGranted = remember(refresh) { overlayGranted() },
+                                                    cameraGranted = remember(refresh) { cameraGranted() },
+                                                    exactGranted = remember(refresh) { exactGranted() },
+                                                    fsiGranted = remember(refresh) { fsiGranted() },
+                                                    batteryGranted = remember(refresh) { batteryGranted() },
                                                     requestNotif = {
                                                         try {
                                                             if (android.os.Build.VERSION.SDK_INT >= 33) {
@@ -169,6 +176,12 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
                                                         } catch (_: Exception) { }
                                                         tick++
                                                     },
+                                                    requestFsi = {
+                                                        try {
+                                                            context.startActivity(Notifications.intentFullScreenIntentSettings(context))
+                                                        } catch (_: Exception) { }
+                                                        tick++
+                                                    },
                                                     requestBattery = {
                                                         try {
                                                             context.startActivity(Notifications.intentBatteryOptimization(context))
@@ -180,6 +193,7 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
                                                         tick++
                                                     }
                                                 )
+                                                }
                                                                                             }
                                                                                         }
                                                                                 }
@@ -294,9 +308,10 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
 
         /*** Kalendarz pamięta wybór — stan trzymany POZA AnimatedVisibility,
              *  więc data nie znika przy ponownym otwarciu kalendarza. ***/
-        val todayUtc = remember(today) { today.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() }
+        // DatePicker operuje na UTC millis — porównania też w UTC (unikamy przesunięcia strefy).
+        val todayUtc = remember(today) { today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
                 val pickerState = rememberDatePickerState(
-                    initialSelectedDateMillis = selected.atStartOfDay(ZoneId.systemDefault())
+                    initialSelectedDateMillis = selected.atStartOfDay(ZoneOffset.UTC)
                         .toInstant().toEpochMilli(),
                     selectableDates = remember(todayUtc) {
                         object : SelectableDates {
@@ -396,7 +411,7 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
                                                                                             pickerState.selectedDateMillis?.let { millis ->
                                                                                                 onStartDateChange(
                                                                                                     Instant.ofEpochMilli(millis)
-                                                                                                        .atZone(ZoneId.systemDefault()).toLocalDate()
+                                                                                                        .atZone(ZoneOffset.UTC).toLocalDate()
                                                                                                 )
                                                                                             }
                                                                                             onPickerOpenChange(false)
@@ -541,11 +556,13 @@ fun StepPermissions(
     overlayGranted: Boolean,
     cameraGranted: Boolean,
     exactGranted: Boolean,
+    fsiGranted: Boolean = true,
     batteryGranted: Boolean,
     requestNotif: () -> Unit,
     requestOverlay: () -> Unit,
     requestCamera: () -> Unit,
     requestExact: () -> Unit,
+    requestFsi: () -> Unit = {},
     requestBattery: () -> Unit
 ) {
     Column(
@@ -570,6 +587,13 @@ fun StepPermissions(
         PermissionRow(Icons.Default.NotificationsActive, "Powiadomienia", notifGranted, requestNotif)
         Spacer(Modifier.height(12.dp))
         PermissionRow(Icons.Default.Alarm, "Dokładne alarmy", exactGranted, requestExact)
+        Spacer(Modifier.height(12.dp))
+        PermissionRow(
+            Icons.Default.OpenInFull,
+            "Alarm pełnoekranowy",
+            fsiGranted,
+            onClick = { if (!fsiGranted) requestFsi() }
+        )
         Spacer(Modifier.height(12.dp))
         PermissionRow(
             Icons.Default.BatterySaver,

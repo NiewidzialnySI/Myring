@@ -83,7 +83,8 @@ object ReminderCenter {
     }
 
     fun hasStockForInsert(context: Context): Boolean =
-        StockStore.totalRemaining(context) > 0
+        StockStore.totalRemaining(context) > 0 ||
+            SettingsStore.isStockPrepaidForCurrentCycle(context)
 
     fun isInsertedToday(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -200,6 +201,9 @@ object ReminderScheduler {
         // Anuluj poprzednie, żeby nie dublować po re-schedule.
         cancelAll(context, alarmManager)
 
+        // Snooze: nie planuj dziennych alarmów na dziś (unikaj pętli catch-up +2 min).
+        val snoozedToday = ReminderCenter.isSnoozed(context, today)
+
         // Gdy jesteśmy w przerwie (potwierdzone wyjęcie) — kotwica włożenia = nextInsert − 7 − weeks*7?
         // Prościej: używamy currentInsert jako startDate (przekazane z zewnątrz),
         // a nextInsert z SettingsStore nadpisuje datę włożenia.
@@ -219,7 +223,11 @@ object ReminderScheduler {
             } else {
                 val overdueRemove = removeDate.isBefore(today)
                 val removeAlarmAt = resolveAlarmDateTime(removeDate, today, reminderTime, overdueRemove)
-                if (removeAlarmAt != null && !(overdueRemove && ReminderCenter.isRemovedToday(context))) {
+                val skipRemoveToday = snoozedToday && removeAlarmAt?.toLocalDate() == today
+                if (removeAlarmAt != null &&
+                    !skipRemoveToday &&
+                    !(overdueRemove && ReminderCenter.isRemovedToday(context))
+                ) {
                     setAlarm(
                         context, alarmManager,
                         Intent(context, ReminderReceiver::class.java).putExtra("insert", false),
@@ -244,7 +252,11 @@ object ReminderScheduler {
             // Wkładanie
             val overdueInsert = breakEnd.isBefore(today)
             val insertAlarmAt = resolveAlarmDateTime(breakEnd, today, reminderTime, overdueInsert)
-            if (insertAlarmAt != null && !(overdueInsert && i == 0L && ReminderCenter.isInsertedToday(context))) {
+            val skipInsertToday = snoozedToday && insertAlarmAt?.toLocalDate() == today
+            if (insertAlarmAt != null &&
+                !skipInsertToday &&
+                !(overdueInsert && i == 0L && ReminderCenter.isInsertedToday(context))
+            ) {
                 setAlarm(
                     context, alarmManager,
                     Intent(context, ReminderReceiver::class.java).putExtra("insert", true),

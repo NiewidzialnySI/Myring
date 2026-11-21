@@ -250,7 +250,7 @@ object AktualizacjaAplikacji {
         val code = o.getInt("versionCode")
         val name = o.optString("versionName", code.toString())
         val apk = o.getString("apkUrl").trim()
-        require(apk.startsWith("http")) { "apkUrl musi być https" }
+        require(apk.startsWith("https://")) { "apkUrl musi być https" }
         val log = o.optString("changelog", "")
         return InfoWersji(code, name, apk, log)
     }

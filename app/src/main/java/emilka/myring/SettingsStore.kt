@@ -47,6 +47,14 @@ object SettingsStore {
         return runCatching { LocalTime.parse(raw) }.getOrNull()
     }
 
+    /** Zmienia tylko godzinę przypomnień — bez nadpisywania start_date. */
+    fun saveReminderTime(context: Context, reminderTime: LocalTime) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_REMINDER, reminderTime.toString())
+            .apply()
+    }
+
     fun loadThemePreference(context: Context): emilka.myring.ui.theme.ThemePreference {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_THEME, emilka.myring.ui.theme.ThemePreference.SYSTEM.name)

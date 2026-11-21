@@ -77,6 +77,22 @@ object Notifications {
         } else true
     }
 
+    /** Full-screen intent (Android 14+ wymaga osobnego zezwolenia). */
+    fun canUseFullScreenIntent(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 34) return true
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return true
+        return nm.canUseFullScreenIntent()
+    }
+
+    fun intentFullScreenIntentSettings(context: Context): Intent =
+        if (Build.VERSION.SDK_INT >= 34) {
+            Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                data = android.net.Uri.parse("package:${context.packageName}")
+            }
+        } else {
+            intentAppNotificationSettings(context)
+        }
+
     fun intentExactAlarmSettings(context: Context): Intent =
         Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
             data = android.net.Uri.parse("package:${context.packageName}")

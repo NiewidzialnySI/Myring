@@ -28,8 +28,9 @@ object CycleMarking {
                     val pos = delta % step
                     val weeksDays = weeks * 7L
                     return when {
+                        pos == 0L -> DayMark.INSERT
                         pos < weeksDays -> DayMark.RING
-                        pos == weeksDays -> DayMark.INSERT
+                        pos == weeksDays -> DayMark.BREAK
                         pos < weeksDays + 7L -> DayMark.BREAK
                         else -> DayMark.RING
                     }
