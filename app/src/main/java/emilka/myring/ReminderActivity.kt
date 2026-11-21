@@ -40,6 +40,7 @@ class ReminderActivity : ComponentActivity() {
         setShowWhenLocked(true)
         setTurnScreenOn(true)
         val insert = intent.getBooleanExtra("insert", false)
+        val demo = intent.getBooleanExtra(EXTRA_DEMO, false)
         val mode = if (insert) ConfirmMode.INSERT else ConfirmMode.REMOVE
         enableEdgeToEdge()
         setContent {
@@ -50,12 +51,13 @@ class ReminderActivity : ComponentActivity() {
                 ) {
                     ConfirmationScreen(
                         mode = mode,
+                        demo = demo,
                         onConfirmed = {
                             ReminderCenter.stopService(this)
                             finish()
                         },
                         onSnooze = {
-                            ReminderCenter.snoozeUntilTomorrow(this)
+                            if (!demo) ReminderCenter.snoozeUntilTomorrow(this)
                             ReminderCenter.stopService(this)
                             finish()
                         }
@@ -63,6 +65,10 @@ class ReminderActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_DEMO = "demo"
     }
 
     override fun onDestroy() {
@@ -76,7 +82,12 @@ class ReminderActivity : ComponentActivity() {
 }
 
 @Composable
-private fun ConfirmationScreen(mode: ConfirmMode, onConfirmed: () -> Unit, onSnooze: () -> Unit) {
+private fun ConfirmationScreen(
+    mode: ConfirmMode,
+    demo: Boolean = false,
+    onConfirmed: () -> Unit,
+    onSnooze: () -> Unit
+) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val primary = MaterialTheme.colorScheme.primary
 
@@ -105,20 +116,24 @@ private fun ConfirmationScreen(mode: ConfirmMode, onConfirmed: () -> Unit, onSno
         if (complete) return
         val ok = if (isRemove) isX(strokes) else isCheck(strokes)
         if (ok) {
-            if (!isRemove && !ReminderCenter.hasStockForInsert(context)) {
+            if (!demo && !isRemove && !ReminderCenter.hasStockForInsert(context)) {
                 showNoStock = true
                 return
             }
             complete = true
             vibrator?.cancel()
-            if (isRemove) ReminderCenter.markRemoved(context)
-            else ReminderCenter.markInserted(context)
+            if (!demo) {
+                if (isRemove) ReminderCenter.markRemoved(context)
+                else ReminderCenter.markInserted(context)
+            }
             ReminderCenter.stopService(context)
         }
     }
 
     LaunchedEffect(Unit) {
-        vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 600, 250, 600, 250, 600), 0))
+        if (!demo) {
+            vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 600, 250, 600, 250, 600), 0))
+        }
     }
     LaunchedEffect(complete) {
         if (complete) { delay(700); onConfirmed() }
