@@ -81,6 +81,7 @@ class MainActivity : ComponentActivity() {
                         MyringApp(onThemeChanged = { pref ->
                             themePref = pref
                             emilka.myring.ui.theme.ThemeMode.apply(pref)
+                            MyringWidgetProvider.refreshAll(this@MainActivity)
                         })
                         DialogAktualizacjiHost()
                     }

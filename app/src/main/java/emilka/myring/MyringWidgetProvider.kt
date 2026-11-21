@@ -3,31 +3,39 @@ package emilka.myring
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProvider
 import android.content.BroadcastReceiver
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.widget.RemoteViews
-import java.time.LocalDate
+import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.appwidget.updateAll
+import emilka.myring.widget.MyringGlanceWidget
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
-/** Widget na ekran główny: okrąg + liczba dni do wyjęcia / włożenia krążka. */
-class MyringWidgetProvider : AppWidgetProvider() {
 
-    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        appWidgetIds.forEach { id ->
-            appWidgetManager.updateAppWidget(id, buildViews(context))
-        }
-        // Przy każdym updatePeriodMillis też doglądamy północnego alarmu.
-        WidgetRefreshScheduler.scheduleNextMidnight(context)
-    }
+/**
+ * Receiver widgetu — klasa zostaje (żeby nie zgubić już dodanych widgetów),
+ * UI renderuje Glance ([MyringGlanceWidget]).
+ */
+class MyringWidgetProvider : GlanceAppWidgetReceiver() {
+
+    override val glanceAppWidget: GlanceAppWidget = MyringGlanceWidget()
 
     override fun onEnabled(context: Context) {
+        super.onEnabled(context)
         WidgetRefreshScheduler.scheduleNextMidnight(context)
         refreshAll(context)
+    }
+
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+        WidgetRefreshScheduler.scheduleNextMidnight(context)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -46,45 +54,15 @@ class MyringWidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_REFRESH = "emilka.myring.action.WIDGET_REFRESH"
 
-        /** Wymusza odświeżenie wszystkich instancji widgetu. */
+        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+        /** Wymusza odświeżenie wszystkich instancji widgetu (Glance). */
         @JvmStatic
         fun refreshAll(context: Context) {
-            val mgr = AppWidgetManager.getInstance(context)
-            val ids = mgr.getAppWidgetIds(ComponentName(context, MyringWidgetProvider::class.java))
-            if (ids.isEmpty()) return
-            val views = buildViews(context)
-            ids.forEach { id -> mgr.updateAppWidget(id, views) }
-        }
-
-        fun buildViews(context: Context): RemoteViews {
-            val views = RemoteViews(context.packageName, R.layout.myring_widget)
-
-            val openApp = PendingIntent.getActivity(
-                context, 0,
-                Intent(context, MainActivity::class.java),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_root, openApp)
-
-            val start = SettingsStore.loadStartDate(context)
-            val weeks = SettingsStore.loadWeeks(context)
-            val today = LocalDate.now()
-
-            if (start == null) {
-                views.setTextViewText(R.id.widget_days, "—")
-                views.setTextViewText(R.id.widget_days_label, "skonfiguruj")
-                views.setTextViewText(R.id.widget_date, "Otwórz aplikację")
-                return views
+            val appContext = context.applicationContext
+            scope.launch {
+                runCatching { MyringGlanceWidget().updateAll(appContext) }
             }
-
-            val currentInsert = SettingsStore.loadCurrentInsert(context) ?: start
-            val nextInsert = SettingsStore.loadNextInsert(context)
-
-            val state = WidgetLogic.compute(today, currentInsert, weeks, nextInsert)
-            views.setTextViewText(R.id.widget_days, state.daysText)
-            views.setTextViewText(R.id.widget_days_label, state.label)
-            views.setTextViewText(R.id.widget_date, state.dateText)
-            return views
         }
     }
 }
@@ -100,7 +78,6 @@ object WidgetRefreshScheduler {
             context, REQUEST_CODE, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        // Jutro 00:01 — po zmianie daty kalendarzowej.
         val next = ZonedDateTime.now(ZoneId.systemDefault())
             .toLocalDate()
             .plusDays(1)
