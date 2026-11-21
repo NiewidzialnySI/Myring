@@ -14,8 +14,9 @@ local.properties
 *.aab
 *.idsig
 /app/release/
-# Klucz podpisujący — nigdy nie wrzucać do repo
+# Klucze poza folderem signing (release jest świadomie w repo)
 /klucz
 *.jks
 *.keystore
 *.p12
+!signing/myring-release.jks

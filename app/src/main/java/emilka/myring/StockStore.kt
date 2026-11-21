@@ -186,4 +186,50 @@ object StockStore {
      * (wywołujący może i tak kontynuować cykl po ostrzeżeniu).
      */
     fun consumeForInsertConfirm(context: Context): Boolean = useNextRing(context)
+
+    private const val MANUAL_LABEL = "Zapas ręczny"
+
+    /**
+     * Ustawia łączną liczbę pozostałych krążków (np. po reinstalacji lub ręcznej korekcie).
+     * Tworzy wpis „Zapas ręczny”, gdy nie ma opakowań.
+     */
+    fun setTotalRemaining(context: Context, targetRemaining: Int) {
+        val target = targetRemaining.coerceAtLeast(0)
+        val list = loadAll(context).toMutableList()
+        if (list.isEmpty()) {
+            if (target > 0) {
+                list.add(
+                    RingPackage(
+                        ean = "manual#0",
+                        label = MANUAL_LABEL,
+                        total = target,
+                        used = 0
+                    )
+                )
+                save(context, list)
+            }
+            return
+        }
+
+        val current = list.sumOf { it.remaining }
+        var delta = target - current
+        if (delta == 0) return
+
+        if (delta > 0) {
+            val idx = list.indexOfFirst { it.label == MANUAL_LABEL }
+                .takeIf { it >= 0 } ?: list.indexOfFirst { true }
+            val p = list[idx]
+            list[idx] = p.copy(total = p.total + delta)
+        } else {
+            var toRemove = -delta
+            for (i in list.indices.reversed()) {
+                if (toRemove <= 0) break
+                val p = list[i]
+                val take = minOf(p.remaining, toRemove)
+                list[i] = p.copy(used = p.used + take)
+                toRemove -= take
+            }
+        }
+        save(context, list)
+    }
 }
