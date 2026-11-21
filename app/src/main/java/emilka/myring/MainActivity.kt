@@ -427,12 +427,6 @@ fun HomeScreen(
                                 nextBreakEnd = nextBreakEnd,
                                 context = context
                             )
-                            Text(
-                                "Ustawienia: przesuń w lewo",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
                         }
                         2 -> CycleCalendarSheet(startDate = startDate, weeks = weeks,
                             onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } })
