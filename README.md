@@ -12,7 +12,14 @@ Package: `emilka.myring`
 ./gradlew :app:assembleRelease
 ```
 
-APK: `app/build/outputs/apk/release/app-release.apk` (podpisany kluczem debug — instalowalny).
+APK release (stały podpis, ten sam przy każdym buildzie):
+
+```bash
+chmod +x scripts/build-release-apk.sh
+./scripts/build-release-apk.sh
+```
+
+Wynik: `app/build/outputs/apk/release/app-release.apk`. Keystore i hasła: [`signing/README.md`](signing/README.md) (w repozytorium).
 
 Wymaga Android SDK (compileSdk 37). Ustaw `sdk.dir` w `local.properties`.
 
@@ -23,6 +30,10 @@ Wymaga Android SDK (compileSdk 37). Ustaw `sdk.dir` w `local.properties`.
 - Widget z liczbą dni — odświeżany o północy i po zmianach cyklu/zapasów
 - Autoaktualizacja z `update.json` (patrz [UPDATE.md](UPDATE.md))
 
+## Zapas po reinstalacji
+
+Na ekranie głównym **przytrzymaj** górny pasek kółek (zapas) → wpisz ile krążków zostało.
+
 ## Bezpieczeństwo
 
-Do gita nie trafiają: `local.properties`, keystore (`klucz`, `*.jks`), pliki `.apk`.
+Do gita nie trafiają: `local.properties`, pliki `.apk`. **Release keystore** jest w `signing/` celowo — żeby nie gubić podpisu; hasło w `signing/README.md`.

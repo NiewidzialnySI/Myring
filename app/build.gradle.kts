@@ -1,7 +1,11 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+val releaseSigningProperties = rootProject.file("signing/signing.properties")
 
 android {
     namespace = "emilka.myring"
@@ -26,11 +30,23 @@ android {
         )
     }
 
+    signingConfigs {
+        if (releaseSigningProperties.exists()) {
+            val props = Properties().apply { releaseSigningProperties.inputStream().use { load(it) } }
+            create("release") {
+                val storePath = props.getProperty("storeFile")
+                storeFile = rootProject.file(storePath)
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // Podpisany kluczem debug (żeby "Build APK" z Android Studio dawał
-            // instalowalny plik, tak jak debug), a R8 WYŁĄCZONY — patrz niżej.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
             // WYŁĄCZONE R8 — release buduje się jak debug, żeby nie wycinać klas
             // rejestrowanych w manifeście (receiver-y, widget, usługa) i Compose.
             optimization {
