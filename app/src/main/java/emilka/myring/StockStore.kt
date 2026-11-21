@@ -118,6 +118,17 @@ object StockStore {
         return true
     }
 
+    /** Zużywa jeden krążek z pierwszego opakowania, które ma jeszcze zapas (kolejność dodawania). */
+    fun useNextRing(context: Context): Boolean {
+        val list = loadAll(context).toMutableList()
+        val idx = list.indexOfFirst { it.remaining > 0 }
+        if (idx < 0) return false
+        val p = list[idx]
+        list[idx] = p.copy(used = p.used + 1)
+        save(context, list)
+        return true
+    }
+
     /** Zużywa jeden krążek z dowolnego opakowania z danym kodem (głównym). */
     fun useRingByBase(context: Context, baseEan: String): Boolean {
         val base = baseEan.substringBefore("#")

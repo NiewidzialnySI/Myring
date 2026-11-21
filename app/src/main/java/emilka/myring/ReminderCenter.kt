@@ -64,6 +64,7 @@ object ReminderCenter {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString("ring_inserted", LocalDate.now().toString()).apply()
         SettingsStore.recordInserted(context)
+        StockStore.useNextRing(context)
         MyringWidgetProvider.refreshAll(context)
         ReminderScheduler.rescheduleFromSettings(context)
     }
