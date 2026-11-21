@@ -299,8 +299,5 @@ private class EanMlKitAnalyzer(
             }
     }
 
-    private fun isValidEan(value: String): Boolean {
-        if (value.length !in 8..13 || !value.all { it.isDigit() }) return false
-        return true
-    }
+    private fun isValidEan(value: String): Boolean = EanValidator.isValid(value)
 }

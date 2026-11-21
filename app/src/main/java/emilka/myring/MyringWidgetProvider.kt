@@ -45,8 +45,15 @@ class MyringWidgetProvider : GlanceAppWidgetReceiver() {
             Intent.ACTION_DATE_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_TIME_CHANGED -> {
-                refreshAll(context)
-                WidgetRefreshScheduler.scheduleNextMidnight(context)
+                val pending = goAsync()
+                scope.launch {
+                    try {
+                        refreshAllAwait(context)
+                        WidgetRefreshScheduler.scheduleNextMidnight(context)
+                    } finally {
+                        pending.finish()
+                    }
+                }
             }
         }
     }

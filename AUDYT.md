@@ -54,13 +54,12 @@ Audyt równoległy **osobnymi agentami** na każdy obszar aplikacji (nie tylko p
 
 ---
 
-## Follow-up po audycie Setup/ustawienia
+## Follow-up po audytach obszarów
 
-Z raportu [Audyt Setup i ustawień](bc-0eef1f69-f423-51dd-a8dc-4e800961ea34):
-- `AppReset` czyści też `myring_prefs`, gasi FGS/notyfikacje
-- Settings: `LifecycleResumeEffect` odświeża hinty FSI/exact
-- Demo `ReminderActivity` nie stopuje prawdziwego alarmu; `onNewIntent` dla `singleTask`
-- Update: HTTPS także dla manifeście + redirect tylko po https
+- Setup: [Audyt Setup i ustawień](bc-0eef1f69-f423-51dd-a8dc-4e800961ea34) — AppReset, FSI hinty, demo, HTTPS
+- Cykl: [Audyt cyklu i Home](bc-29529892-e409-557a-982b-c2ce3582fca6) — RING_ON do wyjęcia; INSERT alarm tylko po `next_insert`; BREAK z ujemnym odliczaniem
+- Zapas/EAN: [Audyt zapasu i EAN](bc-6dcbf98f-574b-5e2d-a88f-ed88ac395421) — idempotentne `markInserted`; checksum EAN; prepaid jednorazowy
+- Widget: [Audyt widget i motyw](bc-b66b3060-98fb-5828-917f-e333c41d39cc) — `goAsync` + `refreshAllAwait` w receiverach
 
 ## Pozostałe (P2 / świadomie otwarte)
 

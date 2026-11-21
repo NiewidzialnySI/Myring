@@ -207,18 +207,10 @@ fun computeCycle(startDate: LocalDate, weeks: Int, day: LocalDate): CycleInfo {
     val removeDate = startDate.plusDays(weeks * 7L)
     val breakEnd = removeDate.plusDays(7L)
     val nextStartDate = breakEnd
-    // Bez potwierdzonego wyjęcia zostajemy w RING_ON (nawet w dniu wyjęcia / po terminie),
-    // żeby Home nie pokazywał „przerwy” zanim użytkownik potwierdzi.
-    val phase = when {
-        !day.isBefore(breakEnd) -> CyclePhase.NEW_CYCLE_READY
-        !day.isBefore(removeDate) -> CyclePhase.RING_ON
-        else -> CyclePhase.RING_ON
-    }
-    val daysLeft = when (phase) {
-        CyclePhase.RING_ON -> java.time.temporal.ChronoUnit.DAYS.between(day, removeDate)
-        CyclePhase.BREAK -> java.time.temporal.ChronoUnit.DAYS.between(day, breakEnd)
-        CyclePhase.NEW_CYCLE_READY -> 0
-    }
+    // Bez potwierdzonego wyjęcia (next_insert) zawsze RING_ON —
+    // nawet po breakEnd, żeby UI nie sugerował „załóż nowy” przed wyjęciem.
+    val phase = CyclePhase.RING_ON
+    val daysLeft = java.time.temporal.ChronoUnit.DAYS.between(day, removeDate)
     return CycleInfo(phase, removeDate, breakEnd, nextStartDate, daysLeft)
 }
 
@@ -305,11 +297,9 @@ fun HomeScreen(
         if (nextBreakEnd != null) {
             val removeDate = lastRemoved ?: startDate.plusDays(weeks * 7L)
             val breakEnd = nextBreakEnd
-            val phase = if (effectiveDay < breakEnd) CyclePhase.BREAK else CyclePhase.NEW_CYCLE_READY
-            val daysLeft = if (phase == CyclePhase.BREAK)
-                java.time.temporal.ChronoUnit.DAYS.between(effectiveDay, breakEnd)
-            else 0
-            CycleInfo(phase, removeDate, breakEnd, breakEnd, daysLeft)
+            // Do markInserted zostajemy w BREAK (ujemne daysLeft = zaległe włożenie).
+            val daysLeft = java.time.temporal.ChronoUnit.DAYS.between(effectiveDay, breakEnd)
+            CycleInfo(CyclePhase.BREAK, removeDate, breakEnd, breakEnd, daysLeft)
         } else {
             computeCycle(startDate, weeks, effectiveDay)
         }

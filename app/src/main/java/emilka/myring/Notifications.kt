@@ -11,6 +11,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -159,11 +160,18 @@ object Notifications {
  */
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        Notifications.createChannels(context)
-        MyringWidgetProvider.refreshAll(context)
-        WidgetRefreshScheduler.scheduleNextMidnight(context)
-        // Upewnij się, że przypomnienia cyklu nie zniknęły (OEM / Doze).
-        ReminderScheduler.rescheduleFromSettings(context)
+        val pending = goAsync()
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            try {
+                Notifications.createChannels(context)
+                // Upewnij się, że przypomnienia cyklu nie zniknęły (OEM / Doze).
+                ReminderScheduler.rescheduleFromSettings(context)
+                MyringWidgetProvider.refreshAllAwait(context)
+                WidgetRefreshScheduler.scheduleNextMidnight(context)
+            } finally {
+                pending.finish()
+            }
+        }
     }
 }
 

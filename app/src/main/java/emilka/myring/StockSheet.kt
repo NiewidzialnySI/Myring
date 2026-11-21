@@ -137,7 +137,10 @@ fun StockSheet(context: Context, onBack: () -> Unit = {}, onStockChanged: () -> 
             context = context,
             isFirst = packages.isEmpty(),
             onAdded = { pkg, useForCurrent ->
-                if (useForCurrent && pkg.remaining > 0) {
+                // Prepaid to jeden bit na cykl — kolejne „Użyj 1…” nie debitują drugi raz.
+                if (useForCurrent && pkg.remaining > 0 &&
+                    !SettingsStore.isStockPrepaidForCurrentCycle(context)
+                ) {
                     StockStore.useRingByBase(context, pkg.ean)
                     SettingsStore.markStockPrepaidForCurrentCycle(context)
                 }
@@ -180,7 +183,10 @@ fun AddPackageDialog(
     var manualEan by remember { mutableStateOf("") }
     var manualCount by remember { mutableStateOf("") }
     var scannedEan by remember { mutableStateOf<String?>(null) }
-    var useForCurrent by remember { mutableStateOf(isFirst) }
+    val alreadyPrepaid = remember {
+        SettingsStore.isStockPrepaidForCurrentCycle(context)
+    }
+    var useForCurrent by remember { mutableStateOf(isFirst && !alreadyPrepaid) }
     var error by remember { mutableStateOf<String?>(null) }
     var cameraGranted by remember {
         mutableStateOf(
@@ -202,6 +208,10 @@ fun AddPackageDialog(
         val ean = scannedEan ?: manualEan.trim()
         val count = manualCount.toIntOrNull()
         if (ean.isEmpty()) { error = "Wpisz lub zeskanuj EAN"; return }
+        if (!EanValidator.isValid(ean)) {
+            error = "Nieprawidłowy kod EAN (wymagany EAN-8/13 z checksumem)"
+            return
+        }
         if (count == null || count <= 0) { error = "Podaj liczbę krążków w opakowaniu"; return }
         val pkg = RingPackage(ean, "Opakowanie (${ean.takeLast(3)})", count, 0)
         StockStore.addPackage(context, ean, pkg.label, count)
@@ -313,22 +323,30 @@ fun AddPackageDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { useForCurrent = !useForCurrent }
-                        .padding(vertical = 2.dp)
-                ) {
-                    Checkbox(
-                        checked = useForCurrent,
-                        onCheckedChange = { useForCurrent = it }
-                    )
+                if (alreadyPrepaid) {
                     Text(
-                        "Użyj 1 krążek na obecny cykl",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(start = 4.dp)
+                        "Bieżący cykl ma już odliczony 1 krążek z zapasu.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { useForCurrent = !useForCurrent }
+                            .padding(vertical = 2.dp)
+                    ) {
+                        Checkbox(
+                            checked = useForCurrent,
+                            onCheckedChange = { useForCurrent = it }
+                        )
+                        Text(
+                            "Użyj 1 krążek na obecny cykl",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
                 }
 
                 error?.let {

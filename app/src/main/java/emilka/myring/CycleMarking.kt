@@ -55,7 +55,7 @@ object CycleMarking {
         val phaseLeft = when {
             nextInsert != null && lastRemoved != null ->
                 ChronoUnit.DAYS.between(today, nextInsert).coerceAtLeast(0)
-            else -> computeCycle(insertAnchor, weeks, today).daysLeft
+            else -> computeCycle(insertAnchor, weeks, today).daysLeft.coerceAtLeast(0)
         }
         val fullCycles = (ringsRemaining - 1).coerceAtLeast(0)
         return today.plusDays(phaseLeft + fullCycles * cycleLengthDays(weeks))

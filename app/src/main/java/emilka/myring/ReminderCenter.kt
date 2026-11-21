@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -67,6 +68,8 @@ object ReminderCenter {
 
     /** @return true jeśli odjęto krążek z zapasu. */
     fun markInserted(context: Context, forceWithoutStock: Boolean = false): Boolean {
+        // Idempotencja: ponowne potwierdzenie tego samego dnia nie debituje drugi raz.
+        if (isInsertedToday(context)) return false
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString("ring_inserted", LocalDate.now().toString()).apply()
         // Prepaid = krążek już odjęty przy dodawaniu opakowania („Użyj 1…”) — nie debituj drugi raz.
@@ -156,19 +159,21 @@ object ReminderCenter {
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val pending = goAsync()
-        try {
-            Notifications.createChannels(context)
-            val today = LocalDate.now()
-            val insert = intent.getBooleanExtra("insert", false)
-            val done = if (insert) ReminderCenter.isInsertedToday(context)
-            else ReminderCenter.isRemovedToday(context)
-            if (!ReminderCenter.isSnoozed(context, today) && !done) {
-                ReminderCenter.showFullScreenReminder(context, insert)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            try {
+                Notifications.createChannels(context)
+                val today = LocalDate.now()
+                val insert = intent.getBooleanExtra("insert", false)
+                val done = if (insert) ReminderCenter.isInsertedToday(context)
+                else ReminderCenter.isRemovedToday(context)
+                if (!ReminderCenter.isSnoozed(context, today) && !done) {
+                    ReminderCenter.showFullScreenReminder(context, insert)
+                }
+                ReminderScheduler.rescheduleFromSettings(context)
+                MyringWidgetProvider.refreshAllAwait(context)
+            } finally {
+                pending.finish()
             }
-        } finally {
-            ReminderScheduler.rescheduleFromSettings(context)
-            MyringWidgetProvider.refreshAll(context)
-            pending.finish()
         }
     }
 }
@@ -249,7 +254,12 @@ object ReminderScheduler {
                 }
             }
 
-            // Wkładanie
+            // Wkładanie — bieżący cykl tylko po potwierdzonym wyjęciu (next_insert),
+            // inaczej da się „włożyć” bez wyjęcia i pominąć przerwę.
+            if (i == 0L && nextInsertOverride == null) {
+                continue
+            }
+
             val overdueInsert = breakEnd.isBefore(today)
             val insertAlarmAt = resolveAlarmDateTime(breakEnd, today, reminderTime, overdueInsert)
             val skipInsertToday = snoozedToday && insertAlarmAt?.toLocalDate() == today
