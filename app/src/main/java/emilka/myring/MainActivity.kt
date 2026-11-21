@@ -427,28 +427,23 @@ fun HomeScreen(
                                 nextBreakEnd = nextBreakEnd,
                                 context = context
                             )
-                            Text(
-                                "Ustawienia: przesuń w lewo",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
                         }
                         2 -> CycleCalendarSheet(startDate = startDate, weeks = weeks,
                             onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } })
                         3 -> SettingsSheet(
                             context = context,
-                            onSaved = {
+                            onChanged = {
                                 onCycleRefresh()
                                 stockTick++
-                                scope.launch { pagerState.animateScrollToPage(ringPage) }
                             },
-                            onThemeChanged = onThemeChanged
+                            onThemeChanged = onThemeChanged,
+                            onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } }
                         )
                     }
                 }
             }
 
+                if (pagerState.currentPage != 3) {
                                                                                                                                             // Pasek zapasów na górze ekranu: kółka pokazujące ile krążków zostało.
                                                                                                                                                         StockHeaderRow(
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     context = context,
@@ -462,6 +457,7 @@ fun HomeScreen(
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 .align(Alignment.TopCenter)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 .padding(top = 12.dp)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                         )
+                }
 
                                                                                                                                                                                                                             }
                                                                                                                                                                                                                                                                                                 }
