@@ -13,8 +13,10 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -201,84 +203,133 @@ fun AddPackageDialog(
         onAdded(pkg, useForCurrent)
     }
 
+    fun applyScannedEan(ean: String) {
+        scannedEan = ean
+        error = null
+        val known = StockStore.knownTotal(context, ean)
+        if (known > 0) {
+            manualCount = known.toString()
+            useForCurrent = false
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Dodaj opakowanie") },
+        shape = RoundedCornerShape(28.dp),
+        title = {
+            Text(
+                "Dodaj opakowanie",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Przełącznik: skan / ręcznie
-                Row {
-                    FilterChip(selected = scanMode, onClick = { scanMode = true }, label = { Text("Skanuj") })
-                    Spacer(Modifier.width(8.dp))
-                    FilterChip(selected = !scanMode, onClick = { scanMode = false }, label = { Text("Wpisz ręcznie") })
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = scanMode,
+                        onClick = { scanMode = true },
+                        label = { Text("Skanuj") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = !scanMode,
+                        onClick = { scanMode = false },
+                        label = { Text("Wpisz ręcznie") },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
 
                 if (scanMode) {
                     EanBarcodeScannerBox(
                         modifier = Modifier.fillMaxWidth(),
-                        onScanned = { ean ->
-                            scannedEan = ean
-                            error = null
-                            val known = StockStore.knownTotal(context, ean)
-                            if (known > 0) {
-                                manualCount = known.toString()
-                                useForCurrent = false
-                            }
-                        }
+                        previewHeight = 200.dp,
+                        onScanned = ::applyScannedEan
                     )
-                    OutlinedButton(
-                        onClick = {
-                            launchGoogleEanScan(
-                                context,
-                                onEan = { ean ->
-                                    scannedEan = ean
-                                    error = null
-                                    val known = StockStore.knownTotal(context, ean)
-                                    if (known > 0) {
-                                        manualCount = known.toString()
-                                        useForCurrent = false
-                                    }
-                                },
-                                onFailed = { error = "Skaner Google niedostępny — użyj podglądu kamery" }
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Szybki skan (Google, auto-zoom)")
-                    }
-                    if (scannedEan != null) {
+                    scannedEan?.let { ean ->
                         Surface(
                             Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
                         ) {
-                            Text("✓ Zeskanowano EAN: ${scannedEan}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(12.dp))
+                            Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                                Text(
+                                    "Zeskanowano",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    ean,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
                         }
                     }
                 } else {
-                    OutlinedTextField(value = manualEan, onValueChange = { manualEan = it },
-                        label = { Text("Kod EAN") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(
+                        value = manualEan,
+                        onValueChange = {
+                            manualEan = it
+                            scannedEan = null
+                        },
+                        label = { Text("Kod EAN") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
-                OutlinedTextField(value = manualCount, onValueChange = { manualCount = it },
-                    label = { Text("Liczba krążków w opakowaniu") }, singleLine = true,
+                OutlinedTextField(
+                    value = manualCount,
+                    onValueChange = { manualCount = it },
+                    label = { Text("Liczba krążków w opakowaniu") },
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth())
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-                // Pytanie o wykorzystanie jednego krążka na obecny cykl (zawsze widoczne).
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = useForCurrent, onCheckedChange = { useForCurrent = it })
-                    Text("Użyj 1 krążek na obecny cykl", style = MaterialTheme.typography.bodyMedium)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { useForCurrent = !useForCurrent }
+                        .padding(vertical = 2.dp)
+                ) {
+                    Checkbox(
+                        checked = useForCurrent,
+                        onCheckedChange = { useForCurrent = it }
+                    )
+                    Text(
+                        "Użyj 1 krążek na obecny cykl",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
                 }
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+
+                error?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = ::finishAdd) { Text("Dodaj") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Anuluj") } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Anuluj") }
+        }
     )
 }

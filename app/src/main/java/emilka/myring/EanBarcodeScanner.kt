@@ -1,7 +1,6 @@
 package emilka.myring
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.hardware.camera2.CaptureRequest
 import android.util.Size
 import android.view.MotionEvent
@@ -21,6 +20,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FlashlightOff
 import androidx.compose.material.icons.filled.FlashlightOn
@@ -28,6 +28,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -41,8 +42,6 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.ZoomSuggestionOptions
 import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -53,6 +52,7 @@ import java.util.concurrent.atomic.AtomicReference
 @Composable
 fun EanBarcodeScannerBox(
     modifier: Modifier = Modifier,
+    previewHeight: androidx.compose.ui.unit.Dp = 220.dp,
     onScanned: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -158,31 +158,37 @@ fun EanBarcodeScannerBox(
         cameraRef.get()?.cameraControl?.enableTorch(torchOn)
     }
 
-    Column(modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(260.dp)
+                .height(previewHeight)
+                .clip(RoundedCornerShape(16.dp))
         ) {
             AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
             Canvas(Modifier.fillMaxSize()) {
-                val w = size.width * 0.82f
-                val h = size.height * 0.38f
+                val w = size.width * 0.78f
+                val h = size.height * 0.36f
                 val left = (size.width - w) / 2f
                 val top = (size.height - h) / 2f
                 drawRoundRect(
-                    color = Color.White.copy(alpha = 0.85f),
+                    color = Color.White.copy(alpha = 0.9f),
                     topLeft = androidx.compose.ui.geometry.Offset(left, top),
                     size = androidx.compose.ui.geometry.Size(w, h),
-                    cornerRadius = CornerRadius(12f, 12f),
-                    style = Stroke(width = 3f)
+                    cornerRadius = CornerRadius(10f, 10f),
+                    style = Stroke(width = 2.5f)
                 )
             }
-            IconButton(
+            FilledIconButton(
                 onClick = { torchOn = !torchOn },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(8.dp)
+                    .padding(10.dp)
+                    .size(40.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = Color.Black.copy(alpha = 0.45f),
+                    contentColor = Color.White
+                )
             ) {
                 Icon(
                     if (torchOn) Icons.Filled.FlashlightOn else Icons.Filled.FlashlightOff,
@@ -191,10 +197,9 @@ fun EanBarcodeScannerBox(
             }
         }
         Text(
-            "Ustaw kod w ramce. Tapnij ekran = ostrość, szczyp = zoom.",
+            "Ustaw kod w ramce · tap = ostrość · szczyp = zoom",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -296,28 +301,4 @@ private class EanMlKitAnalyzer(
         if (value.length !in 8..13 || !value.all { it.isDigit() }) return false
         return true
     }
-}
-
-/** Google Code Scanner — pełnoekranowy skan z auto-zoom (Play Services). */
-fun launchGoogleEanScan(
-    context: Context,
-    onEan: (String) -> Unit,
-    onFailed: () -> Unit = {}
-) {
-    runCatching {
-        val options = GmsBarcodeScannerOptions.Builder()
-            .setBarcodeFormats(
-                Barcode.FORMAT_EAN_13,
-                Barcode.FORMAT_EAN_8
-            )
-            .enableAutoZoom()
-            .build()
-        GmsBarcodeScanning.getClient(context, options)
-            .startScan()
-            .addOnSuccessListener { barcode: Barcode ->
-                barcode.rawValue?.takeIf { it.isNotBlank() }?.let(onEan)
-            }
-            .addOnCanceledListener { }
-            .addOnFailureListener { onFailed() }
-    }.onFailure { onFailed() }
 }
