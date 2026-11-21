@@ -305,13 +305,13 @@ fun launchGoogleEanScan(
     runCatching {
         val options = com.google.android.gms.code.scanner.GmsBarcodeScannerOptions.Builder()
             .setBarcodeFormats(
-                com.google.android.gms.code.scanner.GmsBarcode.FORMAT_EAN_13,
-                com.google.android.gms.code.scanner.GmsBarcode.FORMAT_EAN_8
+                com.google.android.gms.code.scanner.Barcode.FORMAT_EAN_13,
+                com.google.android.gms.code.scanner.Barcode.FORMAT_EAN_8
             )
             .enableAutoZoom()
             .build()
-        com.google.android.gms.code.scanner.GmsBarcodeScanning.getClient(context)
-            .startScan(options)
+        com.google.android.gms.code.scanner.GmsBarcodeScanning.getClient(context, options)
+            .startScan()
             .addOnSuccessListener { barcode ->
                 barcode.rawValue?.takeIf { it.isNotBlank() }?.let(onEan)
             }
