@@ -108,7 +108,7 @@ object StockStore {
 
     /** Zużywa jeden krążek z danego opakowania (jeśli zostały). */
     fun useRing(context: Context, ean: String): Boolean {
-        val list = load(context).toMutableList()
+        val list = loadAll(context).toMutableList()
         val idx = list.indexOfFirst { it.ean == ean }
         if (idx < 0) return false
         val p = list[idx]
@@ -173,4 +173,17 @@ object StockStore {
     /** Łączna liczba pozostałych krążków we wszystkich opakowaniach. */
     fun totalRemaining(context: Context): Int =
         load(context).sumOf { it.remaining }
+
+    fun clearAll(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .apply()
+    }
+
+    /**
+     * Zużywa krążek przy potwierdzeniu włożenia. Zwraca false, gdy brak zapasu
+     * (wywołujący może i tak kontynuować cykl po ostrzeżeniu).
+     */
+    fun consumeForInsertConfirm(context: Context): Boolean = useNextRing(context)
 }

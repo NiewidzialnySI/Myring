@@ -49,6 +49,8 @@ object SettingsStore {
 
     private const val KEY_CURRENT_INSERT = "current_insert"
     private const val KEY_NEXT_INSERT = "next_insert"
+    private const val KEY_LAST_REMOVED = "last_removed"
+    private const val KEY_STOCK_PREPAID_INSERT = "stock_prepaid_insert"
 
     /** Bieżąca data, od której liczymy obecny cykl (data ostatniego potwierdzonego włożenia). */
     fun loadCurrentInsert(context: Context): LocalDate? {
@@ -64,13 +66,22 @@ object SettingsStore {
         return runCatching { LocalDate.parse(raw, ISO) }.getOrNull()
     }
 
+    fun loadLastRemoved(context: Context): LocalDate? {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_LAST_REMOVED, null) ?: return null
+        return runCatching { LocalDate.parse(raw, ISO) }.getOrNull()
+    }
+
     /** Rejestruje potwierdzone wyjęcie: przerwa liczy się od dziś, następne włożenie = dziś + 7. */
     fun recordRemoved(context: Context) {
         val insert = loadCurrentInsert(context) ?: loadStartDate(context) ?: LocalDate.now()
+        val today = LocalDate.now()
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
-            .putString(KEY_CURRENT_INSERT, insert.format(ISO))          // zostawiamy obecny (historia)
-            .putString(KEY_NEXT_INSERT, LocalDate.now().plusDays(7).format(ISO))
+            .putString(KEY_CURRENT_INSERT, insert.format(ISO))
+            .putString(KEY_LAST_REMOVED, today.format(ISO))
+            .putString(KEY_NEXT_INSERT, today.plusDays(7).format(ISO))
+            .remove(KEY_STOCK_PREPAID_INSERT)
             .apply()
     }
 
@@ -80,7 +91,28 @@ object SettingsStore {
             .edit()
             .putString(KEY_CURRENT_INSERT, LocalDate.now().format(ISO))
             .remove(KEY_NEXT_INSERT)
+            .remove(KEY_LAST_REMOVED)
+            .remove(KEY_STOCK_PREPAID_INSERT)
             .apply()
+    }
+
+    /**
+     * Oznacza, że bieżący cykl (kotwica włożenia) ma już odjęty krążek w zapasie
+     * (np. checkbox przy dodawaniu opakowania). Kolejne włożenie po przerwie zużywa normalnie.
+     */
+    fun markStockPrepaidForCurrentCycle(context: Context) {
+        val anchor = loadCurrentInsert(context) ?: loadStartDate(context) ?: LocalDate.now()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_STOCK_PREPAID_INSERT, anchor.format(ISO))
+            .apply()
+    }
+
+    fun isStockPrepaidForCurrentCycle(context: Context): Boolean {
+        val prepaid = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_STOCK_PREPAID_INSERT, null) ?: return false
+        val anchor = loadCurrentInsert(context) ?: loadStartDate(context) ?: return false
+        return prepaid == anchor.format(ISO)
     }
 
     fun clearSetup(context: Context) {
@@ -89,4 +121,26 @@ object SettingsStore {
             .clear()
             .apply()
     }
+
+    /** Pełny reset konfiguracji (bez zapasu — osobno w SettingsStore.resetAppData). */
+    fun reloadCycleState(context: Context): CycleUiState {
+        val start = loadStartDate(context)
+        return CycleUiState(
+            startDate = start,
+            weeks = loadWeeks(context),
+            effectiveInsert = loadCurrentInsert(context) ?: start,
+            nextInsert = loadNextInsert(context),
+            lastRemoved = loadLastRemoved(context),
+            reminderTime = loadReminderTime(context)
+        )
+    }
 }
+
+data class CycleUiState(
+    val startDate: LocalDate?,
+    val weeks: Int,
+    val effectiveInsert: LocalDate?,
+    val nextInsert: LocalDate?,
+    val lastRemoved: LocalDate?,
+    val reminderTime: LocalTime?
+)

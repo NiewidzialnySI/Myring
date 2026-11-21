@@ -43,6 +43,11 @@ object ReminderCenter {
             .edit()
             .putString("snooze_until", LocalDate.now().plusDays(1).toString())
             .apply()
+        ReminderScheduler.rescheduleFromSettings(context)
+    }
+
+    fun clearReminderState(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
     }
 
     fun markRemoved(context: Context) {
@@ -60,14 +65,23 @@ object ReminderCenter {
         return prefs.getString("ring_actioned", null) == LocalDate.now().toString()
     }
 
-    fun markInserted(context: Context) {
+    /** @return true jeśli odjęto krążek z zapasu. */
+    fun markInserted(context: Context, forceWithoutStock: Boolean = false): Boolean {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString("ring_inserted", LocalDate.now().toString()).apply()
+        val debited = when {
+            StockStore.totalRemaining(context) > 0 -> StockStore.consumeForInsertConfirm(context)
+            forceWithoutStock -> false
+            else -> false
+        }
         SettingsStore.recordInserted(context)
-        StockStore.useNextRing(context)
         MyringWidgetProvider.refreshAll(context)
         ReminderScheduler.rescheduleFromSettings(context)
+        return debited
     }
+
+    fun hasStockForInsert(context: Context): Boolean =
+        StockStore.totalRemaining(context) > 0
 
     fun isInsertedToday(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -145,12 +159,12 @@ class ReminderReceiver : BroadcastReceiver() {
             val insert = intent.getBooleanExtra("insert", false)
             val done = if (insert) ReminderCenter.isInsertedToday(context)
             else ReminderCenter.isRemovedToday(context)
-            if (ReminderCenter.isSnoozed(context, today) || done) return
-            ReminderCenter.showFullScreenReminder(context, insert)
-            // Po wyzwoleniu — przeplanuj kolejne cykle (i+1).
+            if (!ReminderCenter.isSnoozed(context, today) && !done) {
+                ReminderCenter.showFullScreenReminder(context, insert)
+            }
+        } finally {
             ReminderScheduler.rescheduleFromSettings(context)
             MyringWidgetProvider.refreshAll(context)
-        } finally {
             pending.finish()
         }
     }
@@ -158,6 +172,11 @@ class ReminderReceiver : BroadcastReceiver() {
 
 /** Planuje przypomnienia cyklu: wyjmowanie i wkładanie (bieżący + następny cykl). */
 object ReminderScheduler {
+
+    fun cancelAllAlarms(context: Context) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        cancelAll(context, alarmManager)
+    }
 
     fun rescheduleFromSettings(context: Context) {
         val start = SettingsStore.loadCurrentInsert(context)
@@ -195,47 +214,72 @@ object ReminderScheduler {
             // Wyjmowanie — tylko gdy nie jesteśmy już w przerwie (nextInsert ustawione).
             if (i == 0L && nextInsertOverride != null) {
                 // Już wyjęte — planuj tylko włożenie.
-            } else if (!removeDate.isBefore(today)) {
-                setAlarm(
-                    context, alarmManager,
-                    Intent(context, ReminderReceiver::class.java).putExtra("insert", false),
-                    ReminderCenter.PENDING_REMOVE + cycle,
-                    removeDate.atTime(reminderTime),
-                    useAlarmClock = true
-                )
-                val db = removeDate.minusDays(1)
-                if (!db.isBefore(today)) {
+            } else {
+                val overdueRemove = removeDate.isBefore(today)
+                val removeAlarmAt = resolveAlarmDateTime(removeDate, today, reminderTime, overdueRemove)
+                if (removeAlarmAt != null && !(overdueRemove && ReminderCenter.isRemovedToday(context))) {
+                    setAlarm(
+                        context, alarmManager,
+                        Intent(context, ReminderReceiver::class.java).putExtra("insert", false),
+                        ReminderCenter.PENDING_REMOVE + cycle,
+                        removeAlarmAt,
+                        useAlarmClock = true
+                    )
+                }
+                val dayBeforeRemove = removeDate.minusDays(1)
+                val dbRemoveAt = resolveAlarmDateTime(dayBeforeRemove, today, reminderTime, false)
+                if (dbRemoveAt != null && !overdueRemove) {
                     setAlarm(
                         context, alarmManager,
                         Intent(context, DayBeforeReceiver::class.java).putExtra("insert", false),
                         ReminderCenter.PENDING_DAY_BEFORE_REMOVE + cycle,
-                        db.atTime(reminderTime),
+                        dbRemoveAt,
                         useAlarmClock = false
                     )
                 }
             }
 
             // Wkładanie
-            if (!breakEnd.isBefore(today)) {
+            val overdueInsert = breakEnd.isBefore(today)
+            val insertAlarmAt = resolveAlarmDateTime(breakEnd, today, reminderTime, overdueInsert)
+            if (insertAlarmAt != null && !(overdueInsert && i == 0L && ReminderCenter.isInsertedToday(context))) {
                 setAlarm(
                     context, alarmManager,
                     Intent(context, ReminderReceiver::class.java).putExtra("insert", true),
                     ReminderCenter.PENDING_INSERT + cycle,
-                    breakEnd.atTime(reminderTime),
+                    insertAlarmAt,
                     useAlarmClock = true
                 )
-                val db = breakEnd.minusDays(1)
-                if (!db.isBefore(today)) {
-                    setAlarm(
-                        context, alarmManager,
-                        Intent(context, DayBeforeReceiver::class.java).putExtra("insert", true),
-                        ReminderCenter.PENDING_DAY_BEFORE_INSERT + cycle,
-                        db.atTime(reminderTime),
-                        useAlarmClock = false
-                    )
-                }
+            }
+            val dayBeforeInsert = breakEnd.minusDays(1)
+            val dbInsertAt = resolveAlarmDateTime(dayBeforeInsert, today, reminderTime, false)
+            if (dbInsertAt != null && !overdueInsert) {
+                setAlarm(
+                    context, alarmManager,
+                    Intent(context, DayBeforeReceiver::class.java).putExtra("insert", true),
+                    ReminderCenter.PENDING_DAY_BEFORE_INSERT + cycle,
+                    dbInsertAt,
+                    useAlarmClock = false
+                )
             }
         }
+    }
+
+    /** Planuje alarm w dniu zdarzenia lub (gdy zaległy) dziś/jutro o [reminderTime]. */
+    private fun resolveAlarmDateTime(
+        eventDate: LocalDate,
+        today: LocalDate,
+        reminderTime: LocalTime,
+        overdue: Boolean
+    ): LocalDateTime? {
+        if (!overdue) {
+            if (eventDate.isBefore(today)) return null
+            return eventDate.atTime(reminderTime)
+        }
+        if (!eventDate.isBefore(today)) return eventDate.atTime(reminderTime)
+        val now = LocalDateTime.now()
+        val todayAt = today.atTime(reminderTime)
+        return if (todayAt.isAfter(now)) todayAt else today.plusDays(1).atTime(reminderTime)
     }
 
     private fun cancelAll(context: Context, alarmManager: AlarmManager) {
@@ -316,6 +360,12 @@ object ReminderScheduler {
 /** Odbiera „dzień przed” i wysyła lekkie powiadomienie. */
 class DayBeforeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        ReminderCenter.notifyDayBefore(context, intent.getBooleanExtra("insert", false))
+        val today = LocalDate.now()
+        if (ReminderCenter.isSnoozed(context, today)) return
+        val insert = intent.getBooleanExtra("insert", false)
+        val done = if (insert) ReminderCenter.isInsertedToday(context)
+        else ReminderCenter.isRemovedToday(context)
+        if (done) return
+        ReminderCenter.notifyDayBefore(context, insert)
     }
 }

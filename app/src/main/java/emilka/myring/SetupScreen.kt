@@ -458,22 +458,20 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StepTimeRange(startTime: LocalTime, onStartChange: (LocalTime) -> Unit) {
-    var end by remember { mutableStateOf(LocalTime.of(22, 0)) }
-    // Tylko jeden zegar otwarty naraz ("active").
-    var active by remember { mutableStateOf<Boolean?>(null) } // true=start, false=end
+    var active by remember { mutableStateOf<Boolean?>(null) }
     val fmt = remember { java.time.format.DateTimeFormatter.ofPattern("HH:mm") }
     val start = startTime
 
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Godzina przypomnień",
             style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(8.dp))
+        Text("Alarm w dniu wyjęcia i włożenia oraz powiadomienie dzień wcześniej.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(20.dp))
 
-        // Kafelek godziny startu — kliknięcie otwiera zegar (i zamyka drugi)
-        TimeTile("Początek", start.format(fmt)) { active = true }
-        Spacer(Modifier.height(16.dp))
-        // Kafelek godziny końca
-        TimeTile("Koniec", end.format(fmt)) { active = false }
+        TimeTile("Przypomnienie o", start.format(fmt)) { active = true }
 
         AnimatedVisibility(visible = active == true) {
             AutoTimePicker(
@@ -481,17 +479,6 @@ fun StepTimeRange(startTime: LocalTime, onStartChange: (LocalTime) -> Unit) {
                 initialMinute = start.minute,
                 onPicked = { h, m ->
                     onStartChange(LocalTime.of(h, m))
-                    active = null
-                }
-            )
-        }
-
-        AnimatedVisibility(visible = active == false) {
-            AutoTimePicker(
-                initialHour = end.hour,
-                initialMinute = end.minute,
-                onPicked = { h, m ->
-                    end = LocalTime.of(h, m)
                     active = null
                 }
             )
