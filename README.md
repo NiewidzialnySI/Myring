@@ -36,4 +36,4 @@ Na ekranie głównym **przytrzymaj** górny pasek kółek (zapas) → wpisz ile 
 
 ## Bezpieczeństwo
 
-Do gita nie trafiają: `local.properties`, `local.properties`, pliki `.apk`. **Release keystore** jest w `signing/` celowo — żeby nie gubić podpisu; hasło w `signing/README.md`.
+Do gita nie trafiają: `local.properties`, pliki `.apk`. **Release keystore** jest w `signing/` celowo — żeby nie gubić podpisu; hasło w `signing/README.md`.
