@@ -1,5 +1,6 @@
 package emilka.myring
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
@@ -47,6 +48,14 @@ fun SettingsSheet(
         WidgetRefreshScheduler.scheduleNextMidnight(context)
         MyringWidgetProvider.refreshAll(context)
         onChanged()
+    }
+
+    fun openConfirmDemo(insert: Boolean) {
+        context.startActivity(
+            Intent(context, ReminderActivity::class.java)
+                .putExtra("insert", insert)
+                .putExtra(ReminderActivity.EXTRA_DEMO, true)
+        )
     }
 
     Column(
@@ -124,11 +133,31 @@ fun SettingsSheet(
                 )
             }
         }
+
+        Spacer(Modifier.height(28.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+        Spacer(Modifier.height(24.dp))
+
+        Text("Ekrany potwierdzenia", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(6.dp))
         Text(
-            "Przesuń w prawo, żeby wrócić do okręgu",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 28.dp)
+            "Podgląd bez zmiany cyklu i bez wibracji alarmu.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = { openConfirmDemo(insert = true) },
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+            Text("Pokaż ekran: włóż krążek")
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(
+            onClick = { openConfirmDemo(insert = false) },
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+        ) {
+            Text("Pokaż ekran: wyjmij krążek")
+        }
     }
 }
