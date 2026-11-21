@@ -644,10 +644,11 @@ fun StepPermissions(
                                     }
 
                                     if (!done) {
+                                        val splashBg = MaterialTheme.colorScheme.background
                                                                             Box(
                                                                                 Modifier
                                                                                     .fillMaxSize()
-                                                                                    .background(androidx.compose.ui.graphics.Color.White)
+                                                                                    .background(splashBg)
                                                                             ) {
                                             // Główny rysujący się pierścień
                                             Canvas(

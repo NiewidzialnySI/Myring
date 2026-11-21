@@ -162,10 +162,6 @@ fun MyringApp(onThemeChanged: (ThemePreference) -> Unit = {}) {
                             weeks = cycleWeeks,
                             nextBreakEnd = nextBreakDate,
                             onCycleRefresh = { applyCycleState() },
-                            onResetApp = {
-                                AppReset.resetToSetup(context, clearStock = false)
-                                started = false
-                            },
                             onThemeChanged = onThemeChanged
                         )
                     }
@@ -266,7 +262,6 @@ fun HomeScreen(
     weeks: Int,
     nextBreakEnd: LocalDate? = null,
     onCycleRefresh: () -> Unit = {},
-    onResetApp: () -> Unit = {},
     onThemeChanged: (ThemePreference) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -432,23 +427,15 @@ fun HomeScreen(
                                 nextBreakEnd = nextBreakEnd,
                                 context = context
                             )
-                            Text(
-                                "Ustawienia: przesuń w lewo",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
                         }
                         2 -> CycleCalendarSheet(startDate = startDate, weeks = weeks,
                             onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } })
                         3 -> SettingsSheet(
                             context = context,
-                            onSaved = {
+                            onChanged = {
                                 onCycleRefresh()
                                 stockTick++
-                                scope.launch { pagerState.animateScrollToPage(ringPage) }
                             },
-                            onReset = onResetApp,
                             onThemeChanged = onThemeChanged,
                             onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } }
                         )
@@ -456,6 +443,7 @@ fun HomeScreen(
                 }
             }
 
+                if (pagerState.currentPage != 3) {
                                                                                                                                             // Pasek zapasów na górze ekranu: kółka pokazujące ile krążków zostało.
                                                                                                                                                         StockHeaderRow(
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     context = context,
@@ -469,6 +457,7 @@ fun HomeScreen(
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 .align(Alignment.TopCenter)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 .padding(top = 12.dp)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                         )
+                }
 
                                                                                                                                                                                                                             }
                                                                                                                                                                                                                                                                                                 }
