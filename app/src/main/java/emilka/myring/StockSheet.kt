@@ -5,11 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.Preview
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -30,15 +25,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.common.InputImage
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.concurrent.Executors
 
 /** Panel "zapas krążków" — wysuwany z lewej po przeciągnięciu palcem w prawo. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -224,16 +213,38 @@ fun AddPackageDialog(
                 }
 
                 if (scanMode) {
-                    BarcodeScannerBox(onScanned = { ean ->
-                        scannedEan = ean
-                        error = null
-                        // Znany EAN (nawet ze zużytego opakowania) → podpowiedz liczbę krążków.
-                        val known = StockStore.knownTotal(context, ean)
-                        if (known > 0) {
-                            manualCount = known.toString()
-                            useForCurrent = false
+                    EanBarcodeScannerBox(
+                        modifier = Modifier.fillMaxWidth(),
+                        onScanned = { ean ->
+                            scannedEan = ean
+                            error = null
+                            val known = StockStore.knownTotal(context, ean)
+                            if (known > 0) {
+                                manualCount = known.toString()
+                                useForCurrent = false
+                            }
                         }
-                    })
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            launchGoogleEanScan(
+                                context,
+                                onEan = { ean ->
+                                    scannedEan = ean
+                                    error = null
+                                    val known = StockStore.knownTotal(context, ean)
+                                    if (known > 0) {
+                                        manualCount = known.toString()
+                                        useForCurrent = false
+                                    }
+                                },
+                                onFailed = { error = "Skaner Google niedostępny — użyj podglądu kamery" }
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Szybki skan (Google, auto-zoom)")
+                    }
                     if (scannedEan != null) {
                         Surface(
                             Modifier.fillMaxWidth(),
@@ -268,72 +279,5 @@ fun AddPackageDialog(
             TextButton(onClick = ::finishAdd) { Text("Dodaj") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Anuluj") } }
-    )
-}
-
-/** Podgląd kamery + rozpoznawanie EAN przez ML Kit. */
-@Composable
-fun BarcodeScannerBox(onScanned: (String) -> Unit) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val previewView = remember { PreviewView(context) }
-    val executor = remember { Executors.newSingleThreadExecutor() }
-    var lastRead by remember { mutableStateOf("") }
-
-    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
-
-    DisposableEffect(Unit) {
-        val providerFuture = ProcessCameraProvider.getInstance(context)
-        providerFuture.addListener({
-            val provider = providerFuture.get()
-            cameraProvider = provider
-            val previewBuilder = Preview.Builder()
-            // Ciągły autofokus — lepsze i szybsze odczyty kodów EAN.
-            try {
-                androidx.camera.camera2.interop.Camera2Interop.Extender(previewBuilder)
-                    .setCaptureRequestOption(
-                        android.hardware.camera2.CaptureRequest.CONTROL_AF_MODE,
-                        android.hardware.camera2.CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO
-                    )
-            } catch (_: Exception) {}
-            val preview = previewBuilder.build()
-            preview.setSurfaceProvider(previewView.surfaceProvider)
-            val analyzer = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
-            analyzer.setAnalyzer(executor) { imageProxy ->
-                val media = imageProxy.image
-                if (media != null) {
-                    val input = InputImage.fromMediaImage(media, imageProxy.imageInfo.rotationDegrees)
-                    BarcodeScanning.getClient().process(input)
-                        .addOnSuccessListener { barcodes ->
-                            val code = barcodes.firstOrNull { it.format == Barcode.FORMAT_EAN_13 || it.format == Barcode.FORMAT_EAN_8 }
-                                ?.rawValue
-                            if (code != null && code != lastRead) {
-                                lastRead = code
-                                onScanned(code)
-                            }
-                        }
-                        .addOnCompleteListener { imageProxy.close() }
-                } else {
-                    imageProxy.close()
-                }
-            }
-            try {
-                provider.unbindAll()
-                provider.bindToLifecycle(
-                    lifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview, analyzer
-                )
-            } catch (_: Exception) {}
-        }, ContextCompat.getMainExecutor(context))
-        onDispose {
-            runCatching { cameraProvider?.unbindAll() }
-            executor.shutdown()
-        }
-    }
-
-    AndroidView(
-        factory = { previewView },
-        modifier = Modifier.fillMaxWidth().height(220.dp)
     )
 }
