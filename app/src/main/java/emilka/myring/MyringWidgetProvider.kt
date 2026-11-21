@@ -64,6 +64,14 @@ class MyringWidgetProvider : GlanceAppWidgetReceiver() {
                 runCatching { MyringGlanceWidget().updateAll(appContext) }
             }
         }
+
+        /**
+         * Wersja awaitowana dla BroadcastReceiver (`goAsync`) —
+         * nie gubi update przy zabiciu procesu po onReceive.
+         */
+        suspend fun refreshAllAwait(context: Context) {
+            runCatching { MyringGlanceWidget().updateAll(context.applicationContext) }
+        }
     }
 }
 
@@ -90,9 +98,13 @@ object WidgetRefreshScheduler {
             alarmManager.canScheduleExactAlarms()
         } else true
 
-        if (canExact) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending)
-        } else {
+        try {
+            if (canExact) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending)
+            } else {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending)
+            }
+        } catch (_: SecurityException) {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending)
         }
     }
@@ -110,7 +122,16 @@ object WidgetRefreshScheduler {
 
 class WidgetRefreshReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        MyringWidgetProvider.refreshAll(context)
-        WidgetRefreshScheduler.scheduleNextMidnight(context)
+        val pending = goAsync()
+        // Północ: odśwież widget + przeplanuj alarmy cyklu (catch-up zaległości).
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            try {
+                ReminderScheduler.rescheduleFromSettings(context)
+                MyringWidgetProvider.refreshAllAwait(context)
+                WidgetRefreshScheduler.scheduleNextMidnight(context)
+            } finally {
+                pending.finish()
+            }
+        }
     }
 }

@@ -1,19 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
--->
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 31+: wyklucz prefs cyklu/zapasu/alarmów (jak backup_rules.xml). -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="myring_settings.xml"/>
+        <exclude domain="sharedpref" path="myring_stock.xml"/>
+        <exclude domain="sharedpref" path="myring_reminders.xml"/>
+        <exclude domain="sharedpref" path="myring_prefs.xml"/>
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="myring_settings.xml"/>
+        <exclude domain="sharedpref" path="myring_stock.xml"/>
+        <exclude domain="sharedpref" path="myring_reminders.xml"/>
+        <exclude domain="sharedpref" path="myring_prefs.xml"/>
     </device-transfer>
-    -->
 </data-extraction-rules>
