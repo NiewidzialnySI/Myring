@@ -59,6 +59,7 @@ fun StockSheet(context: Context, onBack: () -> Unit = {}, onStockChanged: () -> 
     Surface(
         Modifier
             .fillMaxWidth()
+            .padding(horizontal = 12.dp)
             .pointerInput(Unit) {
                 detectHorizontalDragGestures { _, dragAmount ->
                     if (kotlin.math.abs(dragAmount) < 50f) return@detectHorizontalDragGestures

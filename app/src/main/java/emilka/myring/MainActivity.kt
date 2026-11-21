@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import emilka.myring.ui.theme.MojeKrążkiTheme
+import emilka.myring.ui.theme.ThemePreference
 import emilka.myring.update.DialogAktualizacjiHost
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import kotlinx.coroutines.delay
@@ -59,10 +60,18 @@ class MainActivity : ComponentActivity() {
         Notifications.createChannels(this)
         enableEdgeToEdge()
         setContent {
-            MojeKrążkiTheme {
-                Box(Modifier.fillMaxSize()) {
-                    MyringApp()
-                    DialogAktualizacjiHost()
+            var themePref by remember {
+                mutableStateOf(SettingsStore.loadThemePreference(this))
+            }
+            MojeKrążkiTheme(themePreference = themePref) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Box(Modifier.fillMaxSize()) {
+                        MyringApp(onThemeChanged = { themePref = it })
+                        DialogAktualizacjiHost()
+                    }
                 }
             }
         }
@@ -77,7 +86,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MyringApp() {
+fun MyringApp(onThemeChanged: (ThemePreference) -> Unit = {}) {
     val context = LocalContext.current
     var showSplash by remember { mutableStateOf(true) }
     var started by remember { mutableStateOf(false) }
@@ -156,7 +165,9 @@ fun MyringApp() {
                             onResetApp = {
                                 AppReset.resetToSetup(context, clearStock = false)
                                 started = false
-                            })
+                            },
+                            onThemeChanged = onThemeChanged
+                        )
                     }
             // Splash na WIERZCHU — zasłaniając ekran główny, aż do zakończenia animacji.
             AnimatedVisibility(
@@ -255,7 +266,8 @@ fun HomeScreen(
     weeks: Int,
     nextBreakEnd: LocalDate? = null,
     onCycleRefresh: () -> Unit = {},
-    onResetApp: () -> Unit = {}
+    onResetApp: () -> Unit = {},
+    onThemeChanged: (ThemePreference) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val primary = MaterialTheme.colorScheme.primary
@@ -305,7 +317,7 @@ fun HomeScreen(
             CyclePhase.BREAK -> 360f * phaseProgress * 0.28f      // przerwa: mniejszy łuk dla kontrastu
             CyclePhase.NEW_CYCLE_READY -> 360f
         },
-        animationSpec = tween(1200), label = "sweep"
+        animationSpec = tween(900), label = "sweep"
     )
 
     val arcColor = when (cycle.phase) {
@@ -342,18 +354,32 @@ fun HomeScreen(
     }
 
     // HorizontalPager: Zapas(0) | Okrąg(1) | Kalendarz(2) | Ustawienia(3).
-                Box(Modifier.fillMaxSize()) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                ) {
                 val ringPage = 1
             val pagerState = rememberPagerState(initialPage = ringPage, pageCount = { 4 })
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     when (page) {
                         0 -> StockSheet(context = context, onStockChanged = { stockTick++ },
                         onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } })
-                        1 -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        1 -> Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .padding(top = 88.dp, bottom = 16.dp)
+                        ) {
                             // Okrąg z wypełnieniem + liczba dni
                             Box(Modifier.size(280.dp), contentAlignment = Alignment.Center) {
                                 Canvas(Modifier.fillMaxSize()) {
@@ -423,6 +449,7 @@ fun HomeScreen(
                                 scope.launch { pagerState.animateScrollToPage(ringPage) }
                             },
                             onReset = onResetApp,
+                            onThemeChanged = onThemeChanged,
                             onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } }
                         )
                     }
@@ -440,7 +467,7 @@ fun HomeScreen(
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     refreshKey = stockTick,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                             modifier = Modifier
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 .align(Alignment.TopCenter)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                .padding(top = 24.dp)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                .padding(top = 12.dp)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                         )
 
                                                                                                                                                                                                                             }
@@ -451,9 +478,9 @@ fun HomeScreen(
                 private fun CycleCalendarSheet(startDate: LocalDate, weeks: Int, onBack: () -> Unit) {
                                                                     val primary = MaterialTheme.colorScheme.primary
                                                                     val context = androidx.compose.ui.platform.LocalContext.current
-                                                                    val ringColor = Color(0xFF9CD3F2)   // jasnoniebieski: dni z krążkiem
-                                                    val insertColor = Color(0xFFF6A0AC) // różowy: dzień włożenia nowego
-                                                    val breakColor = Color(0xFFE55B5B)  // czerwony: kropelka krwi (bez krążka)
+                                                                    val ringColor = MaterialTheme.colorScheme.secondaryContainer
+                                                    val insertColor = MaterialTheme.colorScheme.secondary
+                                                    val breakColor = MaterialTheme.colorScheme.error
                                     val today = LocalDate.now()
                                     var shown by remember { mutableStateOf(today.withDayOfMonth(1)) }
                                     val fmt = java.time.format.DateTimeFormatter.ofPattern("MM.yyyy")

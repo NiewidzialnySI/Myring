@@ -105,6 +105,8 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
             Column(
                     Modifier
                         .fillMaxSize()
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
                         .padding(horizontal = 24.dp, vertical = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
