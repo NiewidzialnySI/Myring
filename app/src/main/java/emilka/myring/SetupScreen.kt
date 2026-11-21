@@ -65,7 +65,7 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
     var step by remember { mutableStateOf(0) }
     // Dane z konfiguracji — wyciągnięte do góry, żeby trafić do ekranu Home i alarmu.
     var startDate by remember { mutableStateOf(LocalDate.now()) }
-    var weeks by remember { mutableStateOf(3) }
+    val weeks = SettingsStore.CYCLE_WEEKS
     var reminderStart by remember { mutableStateOf(LocalTime.of(18, 0)) }
 
     fun notifGranted() = ContextCompat.checkSelfPermission(context, POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -135,9 +135,8 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
                                                                                                     pickerOpen = pickerOpen,
                                                                                                     onPickerOpenChange = { pickerOpen = it }
                                                                                                 )
-                                                                                                1 -> StepWeeks(weeks = weeks, onWeeksChange = { weeks = it })
-                                                                                                2 -> StepTimeRange(startTime = reminderStart, onStartChange = { reminderStart = it })
-                                                3 -> StepPermissions(
+                                                1 -> StepTimeRange(startTime = reminderStart, onStartChange = { reminderStart = it })
+                                                2 -> StepPermissions(
                                                     notifGranted = notifGranted(),
                                                     overlayGranted = overlayGranted(),
                                                     cameraGranted = cameraGranted(),
@@ -218,7 +217,7 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
                                                                                                                                                     horizontalArrangement = Arrangement.Center
                                                                                                                                                 ) {
                                                                                                                                                     // Wstecz ukryty na ostatnim etapie (uprawnienia).
-                                                                                                                                                    if (step > 0 && step < 3) {
+                                                                                                                                                    if (step > 0 && step < 2) {
                                                                                                                                                         Surface(
                                                                                                                                                             onClick = { step-- },
                                                                                                                                                             modifier = Modifier.size(56.dp),
@@ -235,7 +234,7 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
 
                                                                                                                                                     // Na ostatnim etapie, gdy wszystkie uprawnienia są nadane,
                                                                                                                                                     // strzałka zmienia się w przycisk "Zaczynamy".
-                                                                                                                                                    if (step == 3) {
+                                                                                                                                                    if (step == 2) {
                                                                                                                                                         // Powiadomienia + exact alarms są krytyczne; overlay/bateria — zalecane.
                                                                                                                                                         val allGranted = notifGranted() && exactGranted()
                                                                                                                                                         Surface(
@@ -260,7 +259,7 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
                                                                                                                                                                                                                     } else if (!(step == 0 && pickerOpen)) {
                                                                                                                                                         // Strzałka Dalej ukryta, dopóki kalendarz nie jest zamknięty (data nie wybrana).
                                                                                                                                                         Surface(
-                                                                                                                                                            onClick = { if (step < 3) step++ else onFinish(startDate, weeks, reminderStart) },
+                                                                                                                                                            onClick = { if (step < 2) step++ else onFinish(startDate, weeks, reminderStart) },
                                                                                                                                                             modifier = Modifier.size(64.dp),
                                                                                                                                                             shape = CircleShape,
                                                                                                                                                             color = MaterialTheme.colorScheme.primary,
@@ -400,57 +399,6 @@ fun SetupScreen(onFinish: (startDate: LocalDate, weeks: Int, reminderTime: Local
                                     }
                                 }
                             }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            @OptIn(ExperimentalMaterial3Api::class)
-                            @Composable
-                            fun StepWeeks(weeks: Int, onWeeksChange: (Int) -> Unit) {
-                                                            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("Na ile tygodni trwa cykl?",
-                                        style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
-                                    Spacer(Modifier.height(28.dp))
-
-                                    // Dwa duże, wybieralne kafelki z dużą liczbą tygodni
-                                    Row(
-                                        Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                    ) {
-                                        for (w in listOf(3, 4)) {
-                                            val isSelected = weeks == w
-                                            Surface(
-                                                                                    onClick = { onWeeksChange(w) },
-                                                                                    modifier = Modifier
-                                                                                        .weight(1f)
-                                                                                        .height(120.dp),
-                                                shape = RoundedCornerShape(20.dp),
-                                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                                else MaterialTheme.colorScheme.surface,
-                                                border = BorderStroke(
-                                                    width = if (isSelected) 2.dp else 1.dp,
-                                                    color = if (isSelected) MaterialTheme.colorScheme.primary
-                                                    else MaterialTheme.colorScheme.outlineVariant
-                                                )
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                                    verticalArrangement = Arrangement.Center
-                                                ) {
-                                                    Text("$w",
-                                                        style = MaterialTheme.typography.displayMedium,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                                        else MaterialTheme.colorScheme.onSurface)
-                                                    Spacer(Modifier.height(4.dp))
-                                                    Text("tygodnie",
-                                                        style = MaterialTheme.typography.titleMedium,
-                                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                                        else MaterialTheme.colorScheme.onSurfaceVariant)
-                                                }
                                             }
                                         }
                                     }

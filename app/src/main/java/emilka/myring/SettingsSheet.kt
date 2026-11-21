@@ -31,7 +31,6 @@ fun SettingsSheet(
                 ?: LocalDate.now()
         )
     }
-    var weeks by remember { mutableStateOf(SettingsStore.loadWeeks(context)) }
     var reminderTime by remember {
         mutableStateOf(SettingsStore.loadReminderTime(context) ?: LocalTime.of(18, 0))
     }
@@ -97,17 +96,14 @@ fun SettingsSheet(
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            Spacer(Modifier.height(12.dp))
-            Text("Cykl (tygodnie): $weeks", style = MaterialTheme.typography.titleMedium)
-            Slider(
-                value = weeks.toFloat(),
-                onValueChange = { weeks = it.toInt().coerceIn(1, 6) },
-                valueRange = 1f..6f,
-                steps = 4,
-                modifier = Modifier.fillMaxWidth()
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Cykl: ${SettingsStore.CYCLE_WEEKS} tygodnie + 7 dni przerwy",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
             Text(
                 "Godzina przypomnień: ${reminderTime.format(timeFmt)}",
@@ -131,10 +127,12 @@ fun SettingsSheet(
             Button(
                 onClick = {
                     val anchor = startDate
-                    SettingsStore.saveSetup(context, anchor, weeks, reminderTime)
+                    SettingsStore.saveSetup(context, anchor, reminderTime = reminderTime)
                     ReminderCenter.createChannel(context)
                     AlarmScheduler.scheduleDaily(context, reminderTime)
-                    ReminderScheduler.schedule(context, anchor, weeks, reminderTime)
+                    ReminderScheduler.schedule(
+                        context, anchor, SettingsStore.CYCLE_WEEKS, reminderTime
+                    )
                     WidgetRefreshScheduler.scheduleNextMidnight(context)
                     MyringWidgetProvider.refreshAll(context)
                     onSaved()
