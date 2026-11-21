@@ -1,13 +1,11 @@
 package emilka.myring
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,9 +18,7 @@ import java.time.format.DateTimeFormatter
 fun SettingsSheet(
     context: android.content.Context,
     onSaved: () -> Unit,
-    onReset: () -> Unit,
-    onThemeChanged: (ThemePreference) -> Unit = {},
-    onBack: () -> Unit
+    onThemeChanged: (ThemePreference) -> Unit = {}
 ) {
     var startDate by remember {
         mutableStateOf(
@@ -35,7 +31,6 @@ fun SettingsSheet(
         mutableStateOf(SettingsStore.loadReminderTime(context) ?: LocalTime.of(18, 0))
     }
     var themePref by remember { mutableStateOf(SettingsStore.loadThemePreference(context)) }
-    var showResetConfirm by remember { mutableStateOf(false) }
     val dateFmt = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
 
     Surface(
@@ -141,38 +136,12 @@ fun SettingsSheet(
             ) {
                 Text("Zapisz i przeplanuj alarmy", fontWeight = FontWeight.Bold)
             }
-
-            Spacer(Modifier.height(12.dp))
-            TextButton(
-                onClick = { showResetConfirm = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Wyzeruj aplikację (kreator)", color = MaterialTheme.colorScheme.error)
-            }
-
-            TextButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                Text("← Wróć")
-            }
+            Text(
+                "Wróć gestem w prawo do okręgu",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp)
+            )
         }
-    }
-
-    if (showResetConfirm) {
-        AlertDialog(
-            onDismissRequest = { showResetConfirm = false },
-            title = { Text("Wyzerować aplikację?") },
-            text = {
-                Text("Usunie zapisany cykl i alarmy. Zapas krążków zostanie (możesz go usunąć ręcznie).")
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showResetConfirm = false
-                    AppReset.resetToSetup(context, clearStock = false)
-                    onReset()
-                }) { Text("Wyzeruj") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetConfirm = false }) { Text("Anuluj") }
-            }
-        )
     }
 }

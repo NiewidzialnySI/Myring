@@ -162,10 +162,6 @@ fun MyringApp(onThemeChanged: (ThemePreference) -> Unit = {}) {
                             weeks = cycleWeeks,
                             nextBreakEnd = nextBreakDate,
                             onCycleRefresh = { applyCycleState() },
-                            onResetApp = {
-                                AppReset.resetToSetup(context, clearStock = false)
-                                started = false
-                            },
                             onThemeChanged = onThemeChanged
                         )
                     }
@@ -266,7 +262,6 @@ fun HomeScreen(
     weeks: Int,
     nextBreakEnd: LocalDate? = null,
     onCycleRefresh: () -> Unit = {},
-    onResetApp: () -> Unit = {},
     onThemeChanged: (ThemePreference) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -448,9 +443,7 @@ fun HomeScreen(
                                 stockTick++
                                 scope.launch { pagerState.animateScrollToPage(ringPage) }
                             },
-                            onReset = onResetApp,
-                            onThemeChanged = onThemeChanged,
-                            onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } }
+                            onThemeChanged = onThemeChanged
                         )
                     }
                 }
