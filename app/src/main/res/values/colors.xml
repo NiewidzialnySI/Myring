@@ -11,4 +11,10 @@
     <color name="window_background">#FFF7F6FB</color>
     <color name="amoled_black">#FF000000</color>
     <color name="launcher_background">#FF908DCE</color>
+    <!-- Widget (podgląd / fallback XML). -->
+    <color name="widget_surface">#FFEEF1F8</color>
+    <color name="widget_outline">#337A778A</color>
+    <color name="widget_primary">#FF908DCE</color>
+    <color name="widget_on_surface_variant">#FF4A4758</color>
 </resources>
+

@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Moje Krążki</string>
-    <string name="widget_description">Dni pozostałe do wyjęcia krążka</string>
+    <string name="widget_description">Odliczanie cyklu — dopasowuje się do rozmiaru i motywu</string>
 </resources>

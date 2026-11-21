@@ -3,4 +3,9 @@
     <!-- AMOLED — zero jasnego flasha przy starcie w nocy. -->
     <color name="window_background">#FF000000</color>
     <color name="launcher_background">#FF000000</color>
+    <!-- Widget dark / AMOLED. -->
+    <color name="widget_surface">#FF0E0E10</color>
+    <color name="widget_outline">#336E6A82</color>
+    <color name="widget_primary">#FFC4BFFF</color>
+    <color name="widget_on_surface_variant">#FFCAC6D8</color>
 </resources>
