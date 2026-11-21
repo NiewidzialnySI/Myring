@@ -443,12 +443,14 @@ fun HomeScreen(
                                 stockTick++
                                 scope.launch { pagerState.animateScrollToPage(ringPage) }
                             },
-                            onThemeChanged = onThemeChanged
+                            onThemeChanged = onThemeChanged,
+                            onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } }
                         )
                     }
                 }
             }
 
+                if (pagerState.currentPage != 3) {
                                                                                                                                             // Pasek zapasów na górze ekranu: kółka pokazujące ile krążków zostało.
                                                                                                                                                         StockHeaderRow(
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     context = context,
@@ -462,6 +464,7 @@ fun HomeScreen(
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 .align(Alignment.TopCenter)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 .padding(top = 12.dp)
                                                                                                                                                                                                                                                                                                                                                                                                                                                                         )
+                }
 
                                                                                                                                                                                                                             }
                                                                                                                                                                                                                                                                                                 }
