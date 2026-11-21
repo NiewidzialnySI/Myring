@@ -38,6 +38,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -45,6 +46,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import emilka.myring.ui.theme.CalendarBreakDark
+import emilka.myring.ui.theme.CalendarBreakLight
+import emilka.myring.ui.theme.CalendarInsertDark
+import emilka.myring.ui.theme.CalendarInsertLight
+import emilka.myring.ui.theme.CalendarRingDark
+import emilka.myring.ui.theme.CalendarRingLight
 import emilka.myring.ui.theme.MojeKrążkiTheme
 import emilka.myring.ui.theme.ThemePreference
 import emilka.myring.update.DialogAktualizacjiHost
@@ -56,6 +63,8 @@ import java.time.LocalTime
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Dopasuj night mode zanim narysuje się pierwsze okno (bez białego flasha).
+        emilka.myring.ui.theme.ThemeMode.applyFromStore(this)
         super.onCreate(savedInstanceState)
         Notifications.createChannels(this)
         enableEdgeToEdge()
@@ -69,7 +78,10 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Box(Modifier.fillMaxSize()) {
-                        MyringApp(onThemeChanged = { themePref = it })
+                        MyringApp(onThemeChanged = { pref ->
+                            themePref = pref
+                            emilka.myring.ui.theme.ThemeMode.apply(pref)
+                        })
                         DialogAktualizacjiHost()
                     }
                 }
@@ -467,9 +479,10 @@ fun HomeScreen(
                 private fun CycleCalendarSheet(startDate: LocalDate, weeks: Int, onBack: () -> Unit) {
                                                                     val primary = MaterialTheme.colorScheme.primary
                                                                     val context = androidx.compose.ui.platform.LocalContext.current
-                                                                    val ringColor = MaterialTheme.colorScheme.secondaryContainer
-                                                    val insertColor = MaterialTheme.colorScheme.secondary
-                                                    val breakColor = MaterialTheme.colorScheme.error
+                                                                    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.2f
+                                                                    val ringColor = if (isDark) CalendarRingDark else CalendarRingLight
+                                                                    val insertColor = if (isDark) CalendarInsertDark else CalendarInsertLight
+                                                                    val breakColor = if (isDark) CalendarBreakDark else CalendarBreakLight
                                     val today = LocalDate.now()
                                     var shown by remember { mutableStateOf(today.withDayOfMonth(1)) }
                                     val fmt = java.time.format.DateTimeFormatter.ofPattern("MM.yyyy")
@@ -486,9 +499,16 @@ fun HomeScreen(
                                                                                                                                                 if (kotlin.math.abs(dragAmount) < 50f) return@detectHorizontalDragGestures
                                                                                                                                                 if (dragAmount > 0) onBack()   // poziome gest w prawo → wróć do okręgu
                                                                                                                                             }
-                                                                                                                                        },
-                                                                                                                                    color = MaterialTheme.colorScheme.surface,
-                                                                                                                                    tonalElevation = 2.dp,
+                                                                                                                                        }
+                                                                                                                                        .then(
+                                                                                                                                            if (isDark) Modifier.border(
+                                                                                                                                                1.dp,
+                                                                                                                                                MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                                                                                                                                                RoundedCornerShape(20.dp)
+                                                                                                                                            ) else Modifier
+                                                                                                                                        ),
+                                                                                                                                    color = if (isDark) Color(0xFF121214) else MaterialTheme.colorScheme.surface,
+                                                                                                                                    tonalElevation = if (isDark) 0.dp else 2.dp,
                                                                                                                                     shape = RoundedCornerShape(20.dp)
                                                                                                                                 ) {
                                                             Column(Modifier.fillMaxWidth().padding(16.dp)) {
@@ -600,17 +620,31 @@ fun HomeScreen(
                                                         if (date != null) {
                                                                                                                     // Koło tła: niebieskie dla dni z krążkiem, różowe dla dnia włożenia,
                                                                                                                     // dni przerwy pokazują tylko czerwoną kropelkę (bez koła).
+                                                                                                                    val darkBg = MaterialTheme.colorScheme.background.luminance() < 0.2f
                                                                                                                     val bgColor = when {
-                                                                                                                        mark == DayMark.RING -> ringColor.copy(alpha = 0.7f)
-                                                                                                                        mark == DayMark.INSERT -> insertColor.copy(alpha = 0.9f)
-                                                                                                                        isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                                                                                                        isCurrentMonth -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                                                                                                        mark == DayMark.RING -> ringColor.copy(alpha = if (darkBg) 0.92f else 0.75f)
+                                                                                                                        mark == DayMark.INSERT -> insertColor.copy(alpha = if (darkBg) 0.95f else 0.9f)
+                                                                                                                        isToday -> MaterialTheme.colorScheme.primary.copy(alpha = if (darkBg) 0.28f else 0.18f)
+                                                                                                                        isCurrentMonth -> if (darkBg) Color(0xFF1C1C22) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                                                                                                                         else -> Color.Transparent
+                                                                                                                    }
+                                                                                                                    val dayTextColor = when {
+                                                                                                                        mark == DayMark.RING || mark == DayMark.INSERT -> Color.White
+                                                                                                                        isToday -> MaterialTheme.colorScheme.primary
+                                                                                                                        !isCurrentMonth -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                                                                                                        else -> MaterialTheme.colorScheme.onSurface
                                                                                                                     }
                                                                                                                     androidx.compose.foundation.layout.Box(
                                                                                                                         Modifier
                                                                                                                             .fillMaxSize()
                                                                                                                             .background(bgColor, CircleShape)
+                                                                                                                            .then(
+                                                                                                                                if (isToday && mark == DayMark.NONE) Modifier.border(
+                                                                                                                                    1.5.dp,
+                                                                                                                                    MaterialTheme.colorScheme.primary,
+                                                                                                                                    CircleShape
+                                                                                                                                ) else Modifier
+                                                                                                                            )
                                                                                                                     ) {
                                                                                                                         // Kropelka krwi przy dniu bez krążka (przerwa).
                                                                                                                                                                                                                                                 if (mark == DayMark.BREAK) {
@@ -618,7 +652,7 @@ fun HomeScreen(
                                                                                                                                                                                                                                                         Modifier
                                                                                                                                                                                                                                                             .align(Alignment.BottomCenter)
                                                                                                                                                                                                                                                             .padding(bottom = 5.dp)
-                                                                                                                                                                                                                                                            .size(7.dp)
+                                                                                                                                                                                                                                                            .size(8.dp)
                                                                                                                                                                                                                                                             .background(breakColor, CircleShape)
                                                                                                                                                                                                                                                     )
                                                                                                                                                                                                                                                 }
@@ -626,10 +660,8 @@ fun HomeScreen(
                                                             Text(
                                                                 date.dayOfMonth.toString(),
                                                                 style = MaterialTheme.typography.bodyLarge,
-                                                                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                                                                color = if (isToday) MaterialTheme.colorScheme.primary
-                                                                else if (!isCurrentMonth) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                                                else MaterialTheme.colorScheme.onSurface
+                                                                fontWeight = if (isToday || mark == DayMark.INSERT) FontWeight.Bold else FontWeight.Normal,
+                                                                color = dayTextColor
                                                             )
                                                         }
                                                     }

@@ -37,10 +37,12 @@ private val DarkColorScheme = darkColorScheme(
     surface = DarkSurface,
     onSurface = DarkOnSurface,
     surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = Color(0xFFC5C2D4),
+    onSurfaceVariant = DarkOnSurfaceVariant,
     outline = DarkOutline,
-    error = Color(0xFFFFB4AB),
-    onError = Color(0xFF690005),
+    error = Color(0xFFFF8A80),
+    onError = Color(0xFF40000A),
+    errorContainer = Color(0xFF8C1D2A),
+    onErrorContainer = Color(0xFFFFDAD6),
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -91,6 +93,8 @@ fun MojeKrążkiTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
+            // Tło okna = tło motywu (bez białego flasha przy starcie / zmianie).
+            window.decorView.setBackgroundColor(colorScheme.background.toArgb())
             window.statusBarColor = Color.Transparent.toArgb()
             window.navigationBarColor = Color.Transparent.toArgb()
             WindowCompat.getInsetsController(window, view).apply {
