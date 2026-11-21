@@ -41,6 +41,8 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.ZoomSuggestionOptions
 import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -303,16 +305,16 @@ fun launchGoogleEanScan(
     onFailed: () -> Unit = {}
 ) {
     runCatching {
-        val options = com.google.android.gms.code.scanner.GmsBarcodeScannerOptions.Builder()
+        val options = GmsBarcodeScannerOptions.Builder()
             .setBarcodeFormats(
-                com.google.android.gms.code.scanner.Barcode.FORMAT_EAN_13,
-                com.google.android.gms.code.scanner.Barcode.FORMAT_EAN_8
+                Barcode.FORMAT_EAN_13,
+                Barcode.FORMAT_EAN_8
             )
             .enableAutoZoom()
             .build()
-        com.google.android.gms.code.scanner.GmsBarcodeScanning.getClient(context, options)
+        GmsBarcodeScanning.getClient(context, options)
             .startScan()
-            .addOnSuccessListener { barcode ->
+            .addOnSuccessListener { barcode: Barcode ->
                 barcode.rawValue?.takeIf { it.isNotBlank() }?.let(onEan)
             }
             .addOnCanceledListener { }
