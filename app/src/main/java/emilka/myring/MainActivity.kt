@@ -46,6 +46,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import emilka.myring.ui.theme.MojeKrążkiTheme
 import emilka.myring.update.DialogAktualizacjiHost
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -241,6 +242,11 @@ fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null
     val effectiveDay = today
                                                 val scope = rememberCoroutineScope()
                                                 var stockTick by remember { mutableStateOf(0) }
+        // Po potwierdzeniu włożenia (ReminderActivity) odśwież licznik zapasów.
+        LifecycleResumeEffect(Unit) {
+            stockTick++
+            onPauseOrDispose { }
+        }
 
         val timelineData = remember(startDate, weeks, today) { timeline(startDate, weeks, today) }
 
