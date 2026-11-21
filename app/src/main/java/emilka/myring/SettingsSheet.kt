@@ -20,7 +20,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun SettingsSheet(
     context: android.content.Context,
-    onSaved: () -> Unit,
+    onChanged: () -> Unit = {},
     onThemeChanged: (ThemePreference) -> Unit = {},
     onBack: () -> Unit = {}
 ) {
@@ -36,6 +36,18 @@ fun SettingsSheet(
     }
     var themePref by remember { mutableStateOf(SettingsStore.loadThemePreference(context)) }
     val dateFmt = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
+
+    fun applyReminderTime(time: LocalTime) {
+        reminderTime = time
+        val anchor = startDate
+        SettingsStore.saveSetup(context, anchor, reminderTime = time)
+        ReminderCenter.createChannel(context)
+        AlarmScheduler.scheduleDaily(context, time)
+        ReminderScheduler.schedule(context, anchor, SettingsStore.CYCLE_WEEKS, time)
+        WidgetRefreshScheduler.scheduleNextMidnight(context)
+        MyringWidgetProvider.refreshAll(context)
+        onChanged()
+    }
 
     Column(
         Modifier
@@ -81,7 +93,8 @@ fun SettingsSheet(
                 )
             }
         }
-            Spacer(Modifier.height(28.dp))
+
+        Spacer(Modifier.height(28.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
         Spacer(Modifier.height(24.dp))
 
@@ -106,35 +119,16 @@ fun SettingsSheet(
                 val t = LocalTime.of(h, m)
                 FilterChip(
                     selected = reminderTime == t,
-                    onClick = { reminderTime = t },
+                    onClick = { applyReminderTime(t) },
                     label = { Text(t.format(timeFmt)) }
                 )
             }
-        }
-
-        Spacer(Modifier.height(32.dp))
-        Button(
-            onClick = {
-                val anchor = startDate
-                SettingsStore.saveSetup(context, anchor, reminderTime = reminderTime)
-                ReminderCenter.createChannel(context)
-                AlarmScheduler.scheduleDaily(context, reminderTime)
-                ReminderScheduler.schedule(
-                    context, anchor, SettingsStore.CYCLE_WEEKS, reminderTime
-                )
-                WidgetRefreshScheduler.scheduleNextMidnight(context)
-                MyringWidgetProvider.refreshAll(context)
-                onSaved()
-            },
-            modifier = Modifier.fillMaxWidth().height(56.dp)
-        ) {
-            Text("Zapisz i przeplanuj alarmy", fontWeight = FontWeight.Bold)
         }
         Text(
             "Przesuń w prawo, żeby wrócić do okręgu",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 16.dp)
+            modifier = Modifier.padding(top = 28.dp)
         )
     }
 }

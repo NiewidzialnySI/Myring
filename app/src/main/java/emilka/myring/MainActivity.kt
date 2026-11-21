@@ -438,10 +438,9 @@ fun HomeScreen(
                             onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } })
                         3 -> SettingsSheet(
                             context = context,
-                            onSaved = {
+                            onChanged = {
                                 onCycleRefresh()
                                 stockTick++
-                                scope.launch { pagerState.animateScrollToPage(ringPage) }
                             },
                             onThemeChanged = onThemeChanged,
                             onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } }
