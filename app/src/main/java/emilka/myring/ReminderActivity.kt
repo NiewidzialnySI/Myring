@@ -80,6 +80,7 @@ private fun ConfirmationScreen(mode: ConfirmMode, onConfirmed: () -> Unit, onSno
     var strokes by remember { mutableStateOf<List<List<Offset>>>(emptyList()) }
     var current by remember { mutableStateOf<List<Offset>>(emptyList()) }
     var complete by remember { mutableStateOf(false) }
+    var showNoStock by remember { mutableStateOf(false) }
 
     val isRemove = mode == ConfirmMode.REMOVE
     val title = if (isRemove) "Dziś wyciągnij krążek!" else "Dziś włóż krążek!"
@@ -98,11 +99,14 @@ private fun ConfirmationScreen(mode: ConfirmMode, onConfirmed: () -> Unit, onSno
         if (complete) return
         val ok = if (isRemove) isX(strokes) else isCheck(strokes)
         if (ok) {
+            if (!isRemove && !ReminderCenter.hasStockForInsert(context)) {
+                showNoStock = true
+                return
+            }
             complete = true
             vibrator?.cancel()
             if (isRemove) ReminderCenter.markRemoved(context)
             else ReminderCenter.markInserted(context)
-            // Po krótkim potwierdzeniu zamknij ekran i wycisz.
             ReminderCenter.stopService(context)
         }
     }
@@ -112,6 +116,26 @@ private fun ConfirmationScreen(mode: ConfirmMode, onConfirmed: () -> Unit, onSno
     }
     LaunchedEffect(complete) {
         if (complete) { delay(700); onConfirmed() }
+    }
+
+    if (showNoStock) {
+        AlertDialog(
+            onDismissRequest = { showNoStock = false },
+            title = { Text("Brak krążków w zapasie") },
+            text = { Text("Nie masz zapisanego krążka w aplikacji. Potwierdzić włożenie mimo to? Zapas nie zostanie zmniejszony.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNoStock = false
+                    complete = true
+                    vibrator?.cancel()
+                    ReminderCenter.markInserted(context, forceWithoutStock = true)
+                    ReminderCenter.stopService(context)
+                }) { Text("Potwierdź") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNoStock = false }) { Text("Anuluj") }
+            }
+        )
     }
 
     Box(

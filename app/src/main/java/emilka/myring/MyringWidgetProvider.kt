@@ -119,6 +119,16 @@ object WidgetRefreshScheduler {
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending)
         }
     }
+
+    fun cancelMidnight(context: Context) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pi = PendingIntent.getBroadcast(
+            context, REQUEST_CODE,
+            Intent(context, WidgetRefreshReceiver::class.java),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pi != null) alarmManager.cancel(pi)
+    }
 }
 
 class WidgetRefreshReceiver : BroadcastReceiver() {

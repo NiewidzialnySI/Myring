@@ -93,6 +93,21 @@ fun MyringApp() {
             // Realnie potwierdzone daty cyklu (przesuwają następne etapy).
             val currentInsert = remember { SettingsStore.loadCurrentInsert(context) }
             val nextInsert = remember { SettingsStore.loadNextInsert(context) }
+
+            fun applyCycleState() {
+                if (!SettingsStore.isSetupDone(context)) return
+                val state = SettingsStore.reloadCycleState(context)
+                state.startDate?.let { ringStart = it }
+                cycleWeeks = state.weeks
+                effectiveAnchor = state.effectiveInsert ?: state.startDate ?: effectiveAnchor
+                nextBreakDate = state.nextInsert
+            }
+
+            LifecycleResumeEffect(started) {
+                if (started) applyCycleState()
+                onPauseOrDispose { }
+            }
+
             LaunchedEffect(Unit) {
                         if (setupDone && savedStart != null) {
                             ringStart = savedStart
@@ -133,13 +148,14 @@ fun MyringApp() {
             }
             if (started) {
                         HomeScreen(
-                                                                        startDate = effectiveAnchor,
-                                                                        weeks = cycleWeeks,
-                                                                        nextBreakEnd = nextBreakDate,
-                                                                        onClearSetup = {
-                                                        SettingsStore.clearSetup(context)
-                                                        started = false   // wróć do kreatora
-                                                    })
+                            startDate = effectiveAnchor,
+                            weeks = cycleWeeks,
+                            nextBreakEnd = nextBreakDate,
+                            onCycleRefresh = { applyCycleState() },
+                            onResetApp = {
+                                AppReset.resetToSetup(context, clearStock = false)
+                                started = false
+                            })
                     }
             // Splash na WIERZCHU — zasłaniając ekran główny, aż do zakończenia animacji.
             AnimatedVisibility(
@@ -233,7 +249,13 @@ fun calendarCells(year: Int, month: Int): List<LocalDate?> {
 
 /*** Ekran główny: okrąg z odliczaniem + faza cyklu + narzędzia deweloperskie. ***/
 @Composable
-fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null, onClearSetup: () -> Unit = {}) {
+fun HomeScreen(
+    startDate: LocalDate,
+    weeks: Int,
+    nextBreakEnd: LocalDate? = null,
+    onCycleRefresh: () -> Unit = {},
+    onResetApp: () -> Unit = {}
+) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val primary = MaterialTheme.colorScheme.primary
     val primaryContainer = MaterialTheme.colorScheme.primaryContainer
@@ -248,12 +270,12 @@ fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null
             onPauseOrDispose { }
         }
 
+        val lastRemoved = remember(stockTick) { SettingsStore.loadLastRemoved(context) }
         val timelineData = remember(startDate, weeks, today) { timeline(startDate, weeks, today) }
 
-    val cycle = remember(startDate, weeks, effectiveDay, nextBreakEnd) {
+    val cycle = remember(startDate, weeks, effectiveDay, nextBreakEnd, lastRemoved) {
         if (nextBreakEnd != null) {
-            // Krążek potwierdzenie wyjęliśmy — jesteśmy w przerwie do podanej daty.
-            val removeDate = startDate // data potwierdzonego wyjęcia (kotwica)
+            val removeDate = lastRemoved ?: startDate.plusDays(weeks * 7L)
             val breakEnd = nextBreakEnd
             val phase = if (effectiveDay < breakEnd) CyclePhase.BREAK else CyclePhase.NEW_CYCLE_READY
             val daysLeft = if (phase == CyclePhase.BREAK)
@@ -318,11 +340,10 @@ fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null
         CyclePhase.NEW_CYCLE_READY -> cycle.nextStartDate
     }
 
-    // HorizontalPager: 3 strony — Zapas(0) | Okrąg(1) | Kalendarz(2).
-                // Przeciąganie obsługuje sam Pager (okrąg jedzie za palcem, potem przyciąga).
+    // HorizontalPager: Zapas(0) | Okrąg(1) | Kalendarz(2) | Ustawienia(3).
                 Box(Modifier.fillMaxSize()) {
                 val ringPage = 1
-            val pagerState = rememberPagerState(initialPage = ringPage, pageCount = { 3 })
+            val pagerState = rememberPagerState(initialPage = ringPage, pageCount = { 4 })
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
@@ -368,8 +389,7 @@ fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null
                             Text(
                                 when {
                                     stockLeft <= 0 -> "Zapas: brak krążków"
-                                    stockLeft == 1 -> "Zapas: 1 krążek"
-                                    else -> "Zapas: $stockLeft krążki"
+                                    else -> "Zapas: ${CycleMarking.polishRingsCount(stockLeft)}"
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = if (stockLeft <= 1) MaterialTheme.colorScheme.error
@@ -378,10 +398,32 @@ fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null
                             )
                             PermissionStatusHint(context)
                             // W dniu akcji pokaż przycisk potwierdzenia (X / ptaszek).
-                            ActionDayButton(startDate = startDate, weeks = weeks, today = today, context = context)
+                            ActionDayButton(
+                                startDate = startDate,
+                                weeks = weeks,
+                                today = today,
+                                nextBreakEnd = nextBreakEnd,
+                                context = context
+                            )
+                            Text(
+                                "Ustawienia: przesuń w lewo",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
                         }
                         2 -> CycleCalendarSheet(startDate = startDate, weeks = weeks,
                             onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } })
+                        3 -> SettingsSheet(
+                            context = context,
+                            onSaved = {
+                                onCycleRefresh()
+                                stockTick++
+                                scope.launch { pagerState.animateScrollToPage(ringPage) }
+                            },
+                            onReset = onResetApp,
+                            onBack = { scope.launch { pagerState.animateScrollToPage(ringPage) } }
+                        )
                     }
                 }
             }
@@ -436,12 +478,17 @@ fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null
                                                                                                                                                                                                                                                             modifier = Modifier.padding(start = 4.dp))
                                                                                                                                                                                                                                                         // Do kiedy starczą krążki (według zapasów).
                                                                                                                                                                                                                                                         val stockTotal = StockStore.load(context).sumOf { it.remaining }
+                                                                                                                                                                                                                                                        val nextIns = SettingsStore.loadNextInsert(context)
+                                                                                                                                                                                                                                                        val lastRem = SettingsStore.loadLastRemoved(context)
                                                                                                                                                                                                                                                         if (stockTotal > 0) {
-                                                                                                                                                                                                                                                            val endDate = LocalDate.now().plusDays(stockTotal * (weeks * 7L + 7L))
-                                                                                                                                                                                                                                                            Text("Zapasy starczą do: ${endDate.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))}",
+                                                                                                                                                                                                                                                            val endDate = CycleMarking.estimateStockEndDate(
+                                                                                                                                                                                                                                                                today, startDate, weeks, nextIns, lastRem, stockTotal)
+                                                                                                                                                                                                                                                            endDate?.let { ed ->
+                                                                                                                                                                                                                                                            Text("Zapasy starczą do: ${ed.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))}",
                                                                                                                                                                                                                                                                 style = MaterialTheme.typography.bodyMedium,
                                                                                                                                                                                                                                                                 color = MaterialTheme.colorScheme.primary,
                                                                                                                                                                                                                                                                 modifier = Modifier.padding(start = 4.dp))
+                                                                                                                                                                                                                                                            }
                                                                                                                                                                                                                                                         }
                                                                                                                                                                                                                                                         Spacer(Modifier.height(8.dp))
                                                                                                                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -486,7 +533,13 @@ fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null
                                                 date = date,
                                                 isCurrentMonth = date?.monthValue == shown.monthValue,
                                                 isToday = date == today,
-                                                mark = date?.let { dayMark(it, startDate, weeks) } ?: DayMark.NONE,
+                                                mark = date?.let {
+                                                    CycleMarking.dayMark(
+                                                        it, startDate, weeks,
+                                                        SettingsStore.loadNextInsert(context),
+                                                        SettingsStore.loadLastRemoved(context)
+                                                    )
+                                                } ?: DayMark.NONE,
                                                 ringColor = ringColor,
                                                 insertColor = insertColor,
                                                 breakColor = breakColor,
@@ -569,10 +622,20 @@ fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null
                                                                                                                                     val totalStock = packages.sumOf { it.remaining }
                                                                                                                                     val totalCapacity = packages.sumOf { it.total }
                                                                                                                                     val shown = totalCapacity.coerceIn(1, 12)
+                                                                                                                                    val showNumeric = totalCapacity > 12
 
                                                                                                                                     Box(modifier, contentAlignment = Alignment.Center) {
                                                                                                                                                                                                                                                                                                                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                                                                                                                                                                                                                                                                                                            Row(
+                                                                                                                                                                                                                                                                                                                                            if (showNumeric) {
+                                                                                                                                                                                                                                                                                                                                                Text(
+                                                                                                                                                                                                                                                                                                                                                    "${CycleMarking.polishRingsCount(totalStock)} w zapasie",
+                                                                                                                                                                                                                                                                                                                                                    style = MaterialTheme.typography.bodyMedium,
+                                                                                                                                                                                                                                                                                                                                                    fontWeight = FontWeight.SemiBold,
+                                                                                                                                                                                                                                                                                                                                                    modifier = Modifier
+                                                                                                                                                                                                                                                                                                                                                        .clickable { onTap() }
+                                                                                                                                                                                                                                                                                                                                                        .padding(vertical = 8.dp)
+                                                                                                                                                                                                                                                                                                                                                )
+                                                                                                                                                                                                                                                                                                                                            } else Row(
                                                                                                                                                                                                                                                                                                                                                 horizontalArrangement = Arrangement.Center,
                                                                                                                                                                                                                                                                                                                                                 verticalAlignment = Alignment.CenterVertically,
                                                                                                                                                                                                                                                                                                                                                 modifier = Modifier
@@ -641,6 +704,10 @@ fun HomeScreen(startDate: LocalDate, weeks: Int, nextBreakEnd: LocalDate? = null
 @Composable
 private fun PermissionStatusHint(context: android.content.Context) {
     var tick by remember { mutableStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        tick++
+        onPauseOrDispose { }
+    }
     val notifOk = remember(tick) { Notifications.areNotificationsEnabled(context) }
     val exactOk = remember(tick) { Notifications.canScheduleExactAlarms(context) }
     val batteryOk = remember(tick) { Notifications.isIgnoringBatteryOptimizations(context) }
@@ -672,13 +739,17 @@ private fun PermissionStatusHint(context: android.content.Context) {
 }
 
 @Composable
-private fun ActionDayButton(startDate: LocalDate, weeks: Int, today: LocalDate, context: android.content.Context) {
+private fun ActionDayButton(
+    startDate: LocalDate,
+    weeks: Int,
+    today: LocalDate,
+    nextBreakEnd: LocalDate?,
+    context: android.content.Context
+) {
     val removeDate = startDate.plusDays(weeks * 7L)
-    val breakEnd = removeDate.plusDays(7L)
-    val fmt = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
+    val breakEnd = nextBreakEnd ?: removeDate.plusDays(7L)
 
-    // Określ, jaki dzień akcji to dziś (jeśli żaden — nie pokazuj przycisku).
-    val isRemoveDay = today == removeDate
+    val isRemoveDay = nextBreakEnd == null && today == removeDate
     val isInsertDay = today == breakEnd
     val alreadyDone = if (isRemoveDay) ReminderCenter.isRemovedToday(context)
     else if (isInsertDay) ReminderCenter.isInsertedToday(context) else false

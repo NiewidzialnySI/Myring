@@ -81,12 +81,20 @@ fun StockSheet(context: Context, onBack: () -> Unit = {}, onStockChanged: () -> 
                 color = MaterialTheme.colorScheme.primary)
             // Do kiedy starczą krążki (zakładając stały cykl: weeks*7 dni + 7 dni przerwy).
             if (total > 0) {
-                val weeks = SettingsStore.loadWeeks(context) ?: 3
-                val daysPerCycle = weeks * 7L + 7L
-                val endDate = LocalDate.now().plusDays(total * daysPerCycle)
-                Text("Krążki starczą do: ${endDate.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val weeks = SettingsStore.loadWeeks(context)
+                val insert = SettingsStore.loadCurrentInsert(context)
+                    ?: SettingsStore.loadStartDate(context) ?: LocalDate.now()
+                val endDate = CycleMarking.estimateStockEndDate(
+                    LocalDate.now(), insert, weeks,
+                    SettingsStore.loadNextInsert(context),
+                    SettingsStore.loadLastRemoved(context),
+                    total
+                )
+                endDate?.let {
+                    Text("Krążki starczą do: ${it.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
             Spacer(Modifier.height(16.dp))
 
@@ -137,7 +145,10 @@ fun StockSheet(context: Context, onBack: () -> Unit = {}, onStockChanged: () -> 
             context = context,
             isFirst = packages.isEmpty(),
             onAdded = { pkg, useForCurrent ->
-                if (useForCurrent && pkg.remaining > 0) StockStore.useRingByBase(context, pkg.ean)
+                if (useForCurrent && pkg.remaining > 0) {
+                    StockStore.useRingByBase(context, pkg.ean)
+                    SettingsStore.markStockPrepaidForCurrentCycle(context)
+                }
                 refresh()
                 showAdd = false
             },
@@ -269,10 +280,13 @@ fun BarcodeScannerBox(onScanned: (String) -> Unit) {
     val executor = remember { Executors.newSingleThreadExecutor() }
     var lastRead by remember { mutableStateOf("") }
 
+    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+
     DisposableEffect(Unit) {
         val providerFuture = ProcessCameraProvider.getInstance(context)
         providerFuture.addListener({
-            val cameraProvider = providerFuture.get()
+            val provider = providerFuture.get()
+            cameraProvider = provider
             val previewBuilder = Preview.Builder()
             // Ciągły autofokus — lepsze i szybsze odczyty kodów EAN.
             try {
@@ -304,8 +318,8 @@ fun BarcodeScannerBox(onScanned: (String) -> Unit) {
                 }
             }
             try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
+                provider.unbindAll()
+                provider.bindToLifecycle(
                     lifecycleOwner,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview, analyzer
@@ -313,6 +327,7 @@ fun BarcodeScannerBox(onScanned: (String) -> Unit) {
             } catch (_: Exception) {}
         }, ContextCompat.getMainExecutor(context))
         onDispose {
+            runCatching { cameraProvider?.unbindAll() }
             executor.shutdown()
         }
     }
