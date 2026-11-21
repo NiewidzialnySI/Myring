@@ -34,6 +34,7 @@ enum class ConfirmMode { REMOVE, INSERT }
 
 class ReminderActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        emilka.myring.ui.theme.ThemeMode.applyFromStore(this)
         super.onCreate(savedInstanceState)
         // Ekran nad lockscreenem — jak budzik.
         setShowWhenLocked(true)

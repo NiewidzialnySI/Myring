@@ -21,16 +21,25 @@ val OnPrimary = Color.White
 val OnSurface = Color(0xFF1C1B22)
 val OnBackground = Color(0xFF1C1B22)
 
-// --- Motyw ciemny (miękki, nie razi w nocy) ---
-val DarkBackground = Color(0xFF12131A)
-val DarkSurface = Color(0xFF1C1E28)
-val DarkSurfaceVariant = Color(0xFF2A2C38)
-val DarkPrimary = Color(0xFFB9B4E8)
-val DarkPrimaryContainer = Color(0xFF4A4670)
-val DarkSecondary = Color(0xFFE8A8B4)
-val DarkSecondaryContainer = Color(0xFF4A3A48)
-val DarkTertiary = Color(0xFFE08AA4)
-val DarkOnPrimary = Color(0xFF2A2740)
-val DarkOnSurface = Color(0xFFE6E4EF)
-val DarkOnBackground = Color(0xFFE6E4EF)
-val DarkOutline = Color(0xFF5C5A6E)
+// --- Motyw ciemny AMOLED (prawdziwa czerń #000) ---
+val DarkBackground = Color(0xFF000000)
+val DarkSurface = Color(0xFF0E0E10)
+val DarkSurfaceVariant = Color(0xFF1C1C22)
+val DarkPrimary = Color(0xFFC4BFFF)
+val DarkPrimaryContainer = Color(0xFF3D3A66)
+val DarkSecondary = Color(0xFFFFB0C0)
+val DarkSecondaryContainer = Color(0xFF5A3344)
+val DarkTertiary = Color(0xFFFF9BB4)
+val DarkOnPrimary = Color(0xFF1E1A38)
+val DarkOnSurface = Color(0xFFF0EEF7)
+val DarkOnBackground = Color(0xFFF0EEF7)
+val DarkOutline = Color(0xFF6E6A82)
+val DarkOnSurfaceVariant = Color(0xFFCAC6D8)
+
+// Kalendarz — wysoki kontrast w ciemnym (nie zlewają się z tłem)
+val CalendarRingDark = Color(0xFF6E9BFF)
+val CalendarInsertDark = Color(0xFFFF7AAD)
+val CalendarBreakDark = Color(0xFFFF5E6E)
+val CalendarRingLight = Blue
+val CalendarInsertLight = Pink
+val CalendarBreakLight = Color(0xFFE53955)

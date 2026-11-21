@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -644,7 +645,11 @@ fun StepPermissions(
                                     }
 
                                     if (!done) {
-                                        val splashBg = MaterialTheme.colorScheme.background
+                                        // AMOLED black w ciemnym — nigdy białe tło loga.
+                                        val splashBg =
+                                            if (MaterialTheme.colorScheme.background.luminance() < 0.2f)
+                                                androidx.compose.ui.graphics.Color.Black
+                                            else MaterialTheme.colorScheme.background
                                                                             Box(
                                                                                 Modifier
                                                                                     .fillMaxSize()
