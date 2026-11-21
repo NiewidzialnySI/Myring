@@ -91,14 +91,7 @@ fun SettingsSheet(
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Cykl: ${SettingsStore.CYCLE_WEEKS} tygodnie + 7 dni przerwy",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
             Text(
                 "Godzina przypomnień: ${reminderTime.format(timeFmt)}",
