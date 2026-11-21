@@ -13,6 +13,7 @@ object SettingsStore {
     private const val KEY_WEEKS = "weeks"
     private const val KEY_REMINDER = "reminder_time"
     private const val KEY_SETUP_DONE = "setup_done"
+    private const val KEY_THEME = "theme_preference"
     private val ISO = DateTimeFormatter.ISO_LOCAL_DATE
 
     fun isSetupDone(context: Context): Boolean =
@@ -43,6 +44,22 @@ object SettingsStore {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_REMINDER, null) ?: return null
         return runCatching { LocalTime.parse(raw) }.getOrNull()
+    }
+
+    fun loadThemePreference(context: Context): emilka.myring.ui.theme.ThemePreference {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_THEME, emilka.myring.ui.theme.ThemePreference.SYSTEM.name)
+            ?: return emilka.myring.ui.theme.ThemePreference.SYSTEM
+        return runCatching {
+            emilka.myring.ui.theme.ThemePreference.valueOf(raw)
+        }.getOrDefault(emilka.myring.ui.theme.ThemePreference.SYSTEM)
+    }
+
+    fun saveThemePreference(context: Context, preference: emilka.myring.ui.theme.ThemePreference) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_THEME, preference.name)
+            .apply()
     }
 
     // ---- Realnie potwierdzone daty cyklu (przesuwają następne etapy) ----
